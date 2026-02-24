@@ -189,7 +189,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                     <>
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-400">Target Quota</span>
-                                            <span className="text-cyan-400 font-bold">{targetQuota} GB</span>
+                                            <span className="text-cyan-400 font-bold">{currentQuota + extraQuota} GB</span>
                                         </div>
                                         <div className="border-t border-white/5 pt-4">
                                             <div className="flex justify-between text-lg font-bold">
