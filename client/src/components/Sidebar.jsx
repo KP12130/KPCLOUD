@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const Sidebar = () => {
+const Sidebar = ({ currentMenu, setCurrentMenu }) => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
@@ -66,10 +66,10 @@ const Sidebar = () => {
     };
 
     const menuItems = [
-        { name: 'My Data', icon: '☁️', active: true },
-        { name: 'Recent Activity', icon: '🕒', active: false },
-        { name: 'Starred', icon: '⭐', active: false },
-        { name: 'Trash Bin', icon: '🗑️', active: false },
+        { name: 'My Data', icon: '☁️' },
+        { name: 'Recent Activity', icon: '🕒' },
+        { name: 'Starred', icon: '⭐' },
+        { name: 'Trash Bin', icon: '🗑️' },
     ];
 
     return (
@@ -114,7 +114,8 @@ const Sidebar = () => {
                 {menuItems.map((item) => (
                     <div
                         key={item.name}
-                        className={`flex items-center gap-4 px-4 py-2 rounded-full cursor-pointer transition-colors ${item.active
+                        onClick={() => setCurrentMenu(item.name)}
+                        className={`flex items-center gap-4 px-4 py-2 rounded-full cursor-pointer transition-colors ${item.name === currentMenu
                             ? 'bg-cyan-500/15 text-cyan-400'
                             : 'text-gray-400 hover:bg-cyan-500/5 hover:text-gray-200'
                             }`}

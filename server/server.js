@@ -179,7 +179,7 @@ app.get('/api/storage', async (req, res) => {
         });
 
         const usedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(3);
-        const totalGB = 50;
+        const totalGB = 1;
         const percentage = ((usedGB / totalGB) * 100).toFixed(2);
 
         res.json({

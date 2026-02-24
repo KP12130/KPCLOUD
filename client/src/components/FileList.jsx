@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const FileList = () => {
+const FileList = ({ currentMenu = 'My Data' }) => {
     const [view, setView] = useState('list');
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPath, setCurrentPath] = useState('');
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, item: null });
+
+    const [starredFiles, setStarredFiles] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('kpcloud_starred')) || {}; } catch { return {}; }
+    });
+
+    const toggleStar = (item) => {
+        if (item.isFolder) return;
+        const newStarred = { ...starredFiles };
+        if (newStarred[item.fullPath]) {
+            delete newStarred[item.fullPath];
+        } else {
+            newStarred[item.fullPath] = true;
+        }
+        setStarredFiles(newStarred);
+        localStorage.setItem('kpcloud_starred', JSON.stringify(newStarred));
+    };
 
     const fetchFiles = async () => {
         setLoading(true);
@@ -105,6 +121,28 @@ const FileList = () => {
     }
 
     const displayItems = useMemo(() => {
+        if (currentMenu === 'Trash Bin') {
+            return [];
+        }
+
+        if (currentMenu === 'Starred') {
+            return files.filter(file => starredFiles[file.name]).map(file => ({
+                ...file,
+                displayName: file.name.split('/').pop(),
+                isFolder: false,
+                fullPath: file.name
+            }));
+        }
+
+        if (currentMenu === 'Recent Activity') {
+            return [...files].reverse().slice(0, 30).map(file => ({
+                ...file,
+                displayName: file.name.split('/').pop() || file.name,
+                isFolder: false,
+                fullPath: file.name
+            }));
+        }
+
         const folders = new Map();
         const items = [];
 
@@ -145,7 +183,7 @@ const FileList = () => {
 
         // Folders first, then files
         return [...Array.from(folders.values()), ...items];
-    }, [files, currentPath]);
+    }, [files, currentPath, currentMenu, starredFiles]);
 
     return (
         <div className="flex flex-col w-full h-full pb-20 relative z-20">
@@ -153,14 +191,15 @@ const FileList = () => {
             <div className="flex items-center justify-between mb-2 px-2 relative z-30">
 
                 {/* Breadcrumbs */}
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-400">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-400 max-w-[60%] overflow-hidden truncate">
                     <button
                         onClick={() => setCurrentPath('')}
                         className={`hover:text-cyan-400 transition-colors ${currentPath === '' ? 'text-cyan-400' : ''}`}
+                        disabled={currentMenu !== 'My Data'}
                     >
-                        My Cloud
+                        {currentMenu}
                     </button>
-                    {currentPath.split('/').filter(Boolean).map((part, index, arr) => {
+                    {currentMenu === 'My Data' && currentPath.split('/').filter(Boolean).map((part, index, arr) => {
                         const pathSoFar = arr.slice(0, index + 1).join('/') + '/';
                         return (
                             <React.Fragment key={pathSoFar}>
@@ -224,7 +263,10 @@ const FileList = () => {
                             >
                                 {/* Name & Icon */}
                                 <div className="flex-[3] min-w-0 pr-4 flex items-center gap-4">
-                                    <div className="text-xl opacity-80">{getIcon(item.type)}</div>
+                                    <div className="text-xl opacity-80 relative">
+                                        {getIcon(item.type)}
+                                        {starredFiles[item.fullPath] && <span className="absolute -bottom-1 -right-1 text-[10px]">⭐</span>}
+                                    </div>
                                     <span className="font-medium text-gray-200 truncate group-hover:text-cyan-400 transition-colors">
                                         {item.displayName || item.name}
                                     </span>
@@ -267,7 +309,11 @@ const FileList = () => {
                                 </div>
                             </div>
                         ))}
-                        {displayItems.length === 0 && <div className="py-8 text-center text-gray-500 text-sm">Folder is empty.</div>}
+                        {displayItems.length === 0 && (
+                            <div className="py-8 text-center text-gray-500 text-sm">
+                                {currentMenu === 'Trash Bin' ? 'Trash is automatically emptied every 30 days.' : (currentMenu === 'Starred' ? 'No starred files yet.' : 'Folder is empty.')}
+                            </div>
+                        )}
                     </div>
                 </div>
             ) : (
@@ -293,6 +339,7 @@ const FileList = () => {
                                 )}
                             </div>
                             <div className="h-32 flex items-center justify-center bg-black/40 border-b border-cyan-900/20 relative">
+                                {starredFiles[item.fullPath] && <span className="absolute top-2 left-2 text-sm z-10">⭐</span>}
                                 <div className="text-5xl opacity-80 group-hover:scale-110 transition-transform duration-300">
                                     {getIcon(item.type)}
                                 </div>
@@ -308,7 +355,11 @@ const FileList = () => {
                             </div>
                         </div>
                     ))}
-                    {displayItems.length === 0 && <div className="col-span-full py-8 text-center text-gray-500 text-sm">Folder is empty.</div>}
+                    {displayItems.length === 0 && (
+                        <div className="col-span-full py-8 text-center text-gray-500 text-sm">
+                            {currentMenu === 'Trash Bin' ? 'Trash is automatically emptied every 30 days.' : (currentMenu === 'Starred' ? 'No starred files yet.' : 'Folder is empty.')}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -325,12 +376,20 @@ const FileList = () => {
                     </div>
 
                     {!contextMenu.item.isFolder && (
-                        <button
-                            onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                            className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
-                        >
-                            <span>📥</span> Download
-                        </button>
+                        <>
+                            <button
+                                onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
+                            >
+                                <span>📥</span> Download
+                            </button>
+                            <button
+                                onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
+                            >
+                                <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
