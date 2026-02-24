@@ -14,18 +14,26 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
     });
 
     const packs = [
-        { id: 'vandor', name: 'Vándor Pack', price: '$1.99', desc: 'Alkalmi mentéshez.', kpc: 2000, color: 'text-gray-300' },
-        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: 'Átlagos felhasználóknak.', kpc: 5000, bonus: 500, color: 'text-cyan-400' },
-        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: 'Hardcore júzereknek.', kpc: 10000, bonus: 2000, color: 'text-amber-400', popular: true },
-        { id: 'csaszar', name: 'Császár Pack', price: '$24.99', desc: 'Birodalmi léptékhez.', kpc: 25000, bonus: 7500, color: 'text-orange-400' },
-        { id: 'isten', name: 'Isten Pack', price: '$49.99', desc: 'Mindenek felett álló.', kpc: 50000, bonus: 20000, color: 'text-purple-400' },
-        { id: 'vegtelen', name: 'Végtelen Pack', price: '$99.99', desc: 'A határok megszűnnek.', kpc: 100000, bonus: 50000, color: 'text-rose-500' }
+        { id: 'vandor', name: 'Vándor Pack', price: '$1.99', desc: '~20 GB extra hely egy hónapig.', kpc: 2000, color: 'text-gray-300' },
+        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: '(+10% bónusz) ~60 GB egy hónapig.', kpc: 6000, color: 'text-cyan-400' },
+        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: '(+30% bónusz) ~130 GB egy hónapig.', kpc: 13000, color: 'text-amber-400', popular: true },
+        { id: 'csaszar', name: 'Császár Pack', price: '$24.99', desc: '(+40% bónusz) Itt már komoly birodalmad van.', kpc: 35000, color: 'text-orange-400' },
+        { id: 'isten', name: 'Isten Pack', price: '$49.99', desc: '(+50% bónusz) Fél év 1 TB-os tárhely.', kpc: 75000, color: 'text-purple-400' },
+        { id: 'vegtelen', name: 'Végtelen Pack', price: '$99.99', desc: 'A legjobb üzlet. Több mint egy év 1 TB.', kpc: 160000, color: 'text-rose-500' }
     ];
 
+    const getRate = (gb) => {
+        if (gb <= 10) return 20;
+        if (gb <= 100) return 15;
+        if (gb <= 500) return 12;
+        return 10;
+    };
+
     const calculateMonthlyCost = () => {
-        const storageCost = extraQuota * 150;
-        const featuresCost = (features.highSpeed ? 100 : 0) + (features.apiAccess ? 1000 : 0) + (features.protection ? 50 : 0);
-        return storageCost + featuresCost;
+        const total = currentQuota + extraQuota;
+        const newCost = total * getRate(total);
+        const currentCost = currentQuota * getRate(currentQuota);
+        return Math.max(0, newCost - currentCost);
     };
 
     const handlePurchase = () => {
@@ -128,9 +136,9 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                             <div className="text-[11px] text-gray-500 mt-1">New Total: <span className="text-white font-bold">{currentQuota + extraQuota} GB</span></div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Expansion Cost</div>
-                                            <div className="text-2xl font-bold text-emerald-400 font-mono">-{extraQuota * 150} KPC</div>
-                                            <div className="text-[10px] text-gray-600">One-time upgrade</div>
+                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Unit Price</div>
+                                            <div className="text-2xl font-bold text-emerald-400 font-mono">{getRate(currentQuota + extraQuota)} KPC / GB</div>
+                                            <div className="text-[10px] text-gray-600">Quantity Discount Applied</div>
                                         </div>
                                     </div>
 
