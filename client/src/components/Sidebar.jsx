@@ -4,6 +4,7 @@ const Sidebar = () => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
+    const folderInputRef = useRef(null);
 
     useEffect(() => {
         const fetchStorage = async () => {
@@ -24,22 +25,37 @@ const Sidebar = () => {
     }, []);
 
     const handleUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
 
         setUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
+        let successCount = 0;
 
         try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-            if (response.ok) {
+            // Upload files sequentially to avoid overloading the browser for huge folders
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // Preserve relative path if it's a folder upload, otherwise use normal name
+                const filePath = file.webkitRelativePath || file.name;
+                formData.append('path', filePath);
+
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    console.error(`Upload failed for ${filePath}`);
+                }
+            }
+
+            if (successCount > 0) {
                 window.dispatchEvent(new Event('fileUploaded'));
-            } else {
-                console.error("Upload failed");
             }
         } catch (error) {
             console.error("Error uploading:", error);
@@ -59,20 +75,37 @@ const Sidebar = () => {
     return (
         <aside className="w-64 h-full flex flex-col py-4 z-10 shrink-0 border-r border-transparent">
             {/* New Button */}
-            <div className="px-4 mb-6 relative">
+            <div className="px-4 mb-6 flex flex-col gap-2 relative">
                 <input
                     type="file"
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                     onChange={handleUpload}
+                    multiple
+                />
+                <input
+                    type="file"
+                    ref={folderInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleUpload}
+                    webkitdirectory=""
+                    directory=""
+                    multiple
                 />
                 <button
                     onClick={() => fileInputRef.current.click()}
                     disabled={uploading}
-                    className={`w-full py-3 px-6 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-2xl ${uploading ? 'opacity-50 cursor-wait' : ''}`}
+                    className={`w-full py-2.5 px-4 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-xl ${uploading ? 'opacity-50 cursor-wait' : ''}`}
                 >
-                    <span className="text-xl leading-none -mt-0.5">{uploading ? '...' : '+'}</span>
-                    {uploading ? 'Uploading...' : 'Upload'}
+                    <span className="text-lg leading-none -mt-0.5">{uploading ? '...' : '+'}</span>
+                    {uploading ? 'Uploading...' : 'Upload File(s)'}
+                </button>
+                <button
+                    onClick={() => folderInputRef.current.click()}
+                    disabled={uploading}
+                    className={`w-full py-2.5 px-4 bg-cyan-950/20 border border-cyan-400/10 text-cyan-400/80 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 text-xs font-medium tracking-wide rounded-xl ${uploading ? 'opacity-50 cursor-wait' : ''}`}
+                >
+                    📁 {uploading ? 'Uploading...' : 'Upload Folder'}
                 </button>
             </div>
 

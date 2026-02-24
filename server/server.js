@@ -100,17 +100,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
-        console.log(`Executing PutObjectCommand for file: ${req.file.originalname}`);
+        const uploadKey = req.body.path || req.file.originalname;
+        console.log(`Executing PutObjectCommand for file: ${uploadKey}`);
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
-            Key: req.file.originalname,
+            Key: uploadKey,
             Body: req.file.buffer,
             ContentType: req.file.mimetype,
         });
 
         await s3.send(command);
-        console.log("Upload successful");
-        res.json({ message: 'Upload successful', filename: req.file.originalname });
+        console.log("Upload successful:", uploadKey);
+        res.json({ message: 'Upload successful', filename: uploadKey });
     } catch (error) {
         console.error("Upload Error in /api/upload:", error.message, error.stack);
         res.status(500).json({ error: 'Failed to upload to R2', details: error.message });
