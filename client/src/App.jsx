@@ -7,7 +7,7 @@ import PaywallModal from './components/PaywallModal';
 function App() {
   const [currentMenu, setCurrentMenu] = useState('My Data');
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
-  const [currentTier, setCurrentTier] = useState('Operative'); // This will eventually be fetched from the backend
+  const [kpcBalance, setKpcBalance] = useState(500); // Start with 500 KPC mock
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#030303] text-white font-mono overflow-hidden relative">
@@ -24,7 +24,8 @@ function App() {
         <Sidebar
           currentMenu={currentMenu}
           setCurrentMenu={setCurrentMenu}
-          onOpenPaywall={() => setIsPaywallOpen(true)}
+          onOpenStore={() => setIsPaywallOpen(true)}
+          kpcBalance={kpcBalance}
         />
 
         {/* Central Drive Panel (Rounded Rectangle) */}
@@ -41,15 +42,14 @@ function App() {
         </main>
       </div>
 
-      {/* Paywall Modal */}
+      {/* KPC Store Modal */}
       {isPaywallOpen && (
         <PaywallModal
-          currentTier={currentTier}
           onClose={() => setIsPaywallOpen(false)}
-          onUpgrade={(newTier) => {
-            setCurrentTier(newTier);
+          onTopUp={(amount) => {
+            setKpcBalance(prev => prev + amount);
             // Here we will eventually trigger the backend API to deduct KPC and update DB
-            alert(`Rank upgraded to ${newTier}! Your storage limit has expanded.`);
+            alert(`Purchase successful! Added ${amount.toLocaleString()} KPC to your balance.`);
           }}
         />
       )}

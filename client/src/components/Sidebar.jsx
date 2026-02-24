@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const Sidebar = ({ currentMenu, setCurrentMenu, onOpenPaywall }) => {
+const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance }) => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
@@ -24,6 +24,16 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenPaywall }) => {
         window.addEventListener('fileUploaded', fetchStorage);
         return () => window.removeEventListener('fileUploaded', fetchStorage);
     }, []);
+
+    // Calculate daily burn rate: 0 KPC for 1GB or less, 5 KPC per additional GB
+    const calculateBurnRate = () => {
+        if (!storage) return 0;
+        const usedGB = parseFloat(storage.usedGB);
+        if (usedGB <= 1) return 0;
+        return Math.ceil(usedGB - 1) * 5;
+    };
+
+    const burnRate = calculateBurnRate();
 
     const handleUpload = async (e) => {
         const files = e.target.files;
@@ -102,13 +112,13 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenPaywall }) => {
         { name: 'My Data', icon: '☁️' },
         { name: 'Recent Activity', icon: '🕒' },
         { name: 'Starred', icon: '⭐' },
-        { name: 'Trash Bin', icon: '🗑️' },
+        { name: 'Trash Bin', icon: '🗑️' }
     ];
 
     return (
-        <aside className="w-64 h-full flex flex-col py-4 z-10 shrink-0 border-r border-transparent">
-            {/* New Button */}
-            <div className="px-4 mb-6 flex flex-col gap-2 relative">
+        <aside className="w-56 lg:w-64 flex flex-col pt-4 mx-2 border-r border-cyan-900/40">
+            {/* Upload Buttons */}
+            <div className="px-4 mb-6 space-y-3">
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -154,6 +164,32 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenPaywall }) => {
                 </button>
             </div>
 
+            {/* Economy Card */}
+            <div className="px-4 mb-6">
+                <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-2xl p-4 shadow-[0_0_15px_rgba(0,243,255,0.05)]">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">KPC Balance</span>
+                        <div className="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded font-bold border border-emerald-500/30 animate-pulse">LIVE</div>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h2.45c.14.93 1.05 1.51 2.5 1.51 1.48 0 2.45-.66 2.45-1.63 0-1.11-1.07-1.48-2.65-1.94-2.1-.64-4.08-1.58-4.08-4.07 0-1.92 1.43-3.13 3.27-3.48V3.13h2.67v1.94c1.69.31 2.94 1.41 3.12 3.19h-2.43c-.15-.84-1-1.45-2.28-1.45-1.37 0-2.3.69-2.3 1.63 0 1.02.99 1.4 2.8 1.99 2.16.66 3.93 1.62 3.93 4.04 0 2.05-1.51 3.18-3.51 3.62z" /></svg>
+                        <span className="text-xl font-bold text-white font-mono">{(kpcBalance || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-gray-500">Daily Burn:</span>
+                        <span className={`font-bold ${burnRate > 0 ? 'text-rose-400' : 'text-cyan-400'}`}>
+                            -{burnRate} KPC / day
+                        </span>
+                    </div>
+                    <button
+                        onClick={onOpenStore}
+                        className="w-full mt-3 py-1.5 bg-cyan-500/20 border border-cyan-500/40 text-[10px] font-bold text-cyan-400 hover:bg-cyan-500/40 rounded-lg transition-all uppercase tracking-tighter"
+                    >
+                        Topup KPC Store
+                    </button>
+                </div>
+            </div>
+
             {/* Navigation */}
             <nav className="flex-1 space-y-1 px-3">
                 {menuItems.map((item) => (
@@ -172,44 +208,36 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenPaywall }) => {
             </nav>
 
             {/* Storage Area */}
-            <div className="px-6 mt-auto mb-4">
-                <div className="flex items-center gap-2 text-gray-400 mb-3 hover:text-cyan-400 cursor-pointer transition-colors">
-                    <span>☁️</span> <span className="text-sm font-medium">Storage Allocation</span>
+            <div className="px-6 mt-auto mb-0 border-t border-cyan-900/20 pt-4">
+                <div className="flex items-center gap-2 text-gray-400 mb-3">
+                    <span>☁️</span> <span className="text-xs font-medium uppercase tracking-widest opacity-60">Storage Status</span>
                 </div>
 
                 {storage ? (
                     <>
-                        <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30 relative">
+                        <div className="h-1 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30 relative">
                             <div
                                 className={`h-full transition-all duration-1000 ${storage.percentage > 90
-                                    ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.9)] animate-pulse'
-                                    : 'bg-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.8)]'
+                                    ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)] animate-pulse'
+                                    : 'bg-cyan-500 shadow-[0_0_5px_rgba(0,243,255,0.5)]'
                                     }`}
                                 style={{ width: `${storage.percentage}%` }}
                             ></div>
                         </div>
-                        <p className={`text-[11px] mt-2 font-sans tracking-wide transition-colors ${storage.percentage > 90 ? 'text-rose-400 font-bold' : 'text-gray-500'}`}>
-                            {storage.usedGB} GB / {storage.totalGB} GB used ({storage.tier})
+                        <p className={`text-[10px] mt-2 font-mono transition-colors ${storage.percentage > 90 ? 'text-rose-400 font-bold' : 'text-gray-500'}`}>
+                            {storage.usedGB} GB used (Free: 1GB)
                         </p>
                     </>
                 ) : (
-                    <div className="animate-pulse h-1.5 bg-cyan-900/50 rounded-full w-full"></div>
+                    <div className="animate-pulse h-1 bg-cyan-900/50 rounded-full w-full"></div>
                 )}
 
-                <button
-                    onClick={onOpenPaywall}
-                    className="mt-4 w-full py-2 border border-cyan-800 rounded-full text-xs text-cyan-400 font-medium hover:bg-cyan-900/30 transition-colors"
-                >
-                    Expand Core Storage
-                </button>
-
                 {storage && (
-                    <div className="mt-6 flex flex-col items-center justify-center opacity-40 hover:opacity-100 transition-opacity">
-                        <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest leading-none mb-1">R2 Bucket Footprint</span>
-                        <span className="text-xs text-cyan-300 font-mono">
+                    <div className="mt-4 flex flex-col items-center justify-center opacity-30 hover:opacity-100 transition-opacity">
+                        <span className="text-[9px] uppercase text-gray-500 font-bold tracking-widest leading-none mb-1">R2 Footprint</span>
+                        <span className="text-[10px] text-cyan-500/70 font-mono">
                             {storage.rawTotalBytes === 0 ? '0 B' :
                                 (storage.rawTotalBytes / (1024 * 1024)).toFixed(2) + ' MB'}
-                            <span className="text-[9px] text-gray-500 ml-1">({storage.rawTotalBytes.toLocaleString()} B)</span>
                         </span>
                     </div>
                 )}

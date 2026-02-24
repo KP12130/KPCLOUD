@@ -1,23 +1,22 @@
 import React, { useState } from 'react';
 
-const PaywallModal = ({ onClose, currentTier, onUpgrade }) => {
-    const [selectedTier, setSelectedTier] = useState(null);
+const PaywallModal = ({ onClose, onTopUp }) => {
+    const [selectedPack, setSelectedPack] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const tiers = [
-        { name: 'Citizen', price: 0, gb: 5, color: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30' },
-        { name: 'Operative', price: 50, gb: 50, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30' },
-        { name: 'Commander', price: 150, gb: 250, color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/30' },
-        { name: 'Titan', price: 500, gb: 'Uncapped', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' }
+    const packs = [
+        { id: 'vandor', name: 'Vándor Pack', price: '$1.99', desc: 'Alkalmi mentéshez.', kpc: 2000, bonus: 0, color: 'text-gray-300', bg: 'bg-gray-500/10', border: 'border-gray-500/30' },
+        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: 'Átlagos felhasználóknak.', kpc: 5000, bonus: 500, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', popular: true },
+        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: 'Hardcore júzereknek.', kpc: 10000, bonus: 2000, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' }
     ];
 
-    const handleUpgrade = async () => {
-        if (!selectedTier || selectedTier.name === currentTier) return;
+    const handlePurchase = async () => {
+        if (!selectedPack) return;
 
         setIsProcessing(true);
-        // Simulate an API call to deduct KPC and upgrade rank
+        // Simulate an API call to process PayPal payment and add KPC
         setTimeout(() => {
-            onUpgrade(selectedTier.name);
+            onTopUp(selectedPack.kpc + selectedPack.bonus);
             setIsProcessing(false);
             onClose();
         }, 1500);
@@ -39,47 +38,52 @@ const PaywallModal = ({ onClose, currentTier, onUpgrade }) => {
 
                 <div className="text-center mb-10">
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-3">
-                        Expand Core Storage
+                        KPC Store
                     </h2>
                     <p className="text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
-                        Upgrade your KPCloud rank using KPC to permanently increase your data allocation on the Grid.
+                        Top up your KP-Coin balance to secure extra storage over 1GB and unlock premium features.
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    {tiers.map((tier) => {
-                        const isCurrent = currentTier === tier.name;
-                        const isSelected = selectedTier?.name === tier.name;
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                    {packs.map((pack) => {
+                        const isSelected = selectedPack?.id === pack.id;
 
                         return (
                             <div
-                                key={tier.name}
-                                onClick={() => !isCurrent && setSelectedTier(tier)}
+                                key={pack.id}
+                                onClick={() => setSelectedPack(pack)}
                                 className={`
-                                    relative flex flex-col p-6 rounded-2xl border-2 transition-all duration-300
-                                    ${isCurrent ? 'opacity-50 cursor-not-allowed bg-black/40 border-gray-800' : 'cursor-pointer'}
-                                    ${isSelected && !isCurrent ? `scale-105 shadow-[0_0_30px_rgba(0,0,0,0.5)] ${tier.border} ${tier.bg}` : ''}
-                                    ${!isSelected && !isCurrent ? 'bg-black/20 border-white/5 hover:border-white/20 hover:bg-white/5' : ''}
+                                    relative flex flex-col p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer
+                                    ${isSelected ? `scale-105 shadow-[0_0_30px_rgba(0,0,0,0.5)] ${pack.border} ${pack.bg}` : ''}
+                                    ${!isSelected ? 'bg-black/20 border-white/5 hover:border-white/20 hover:bg-white/5' : ''}
                                 `}
                             >
-                                {isCurrent && (
-                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-800 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full text-gray-400 border border-gray-700">
-                                        Current Rank
+                                {pack.popular && (
+                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-600 to-blue-600 text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full text-white border border-cyan-400">
+                                        Legjobb Ajánlat
                                     </div>
                                 )}
 
-                                <div className={`text-xl font-bold mb-4 ${isCurrent ? 'text-gray-500' : tier.color}`}>{tier.name}</div>
+                                <div className={`text-xl font-bold mb-1 ${pack.color}`}>{pack.name}</div>
+                                <div className="text-xs text-gray-500 h-8 mb-4">{pack.desc}</div>
 
-                                <div className="flex items-end mb-6">
-                                    <span className="text-3xl font-bold text-white mr-2">{tier.gb}</span>
-                                    {tier.gb !== 'Uncapped' && <span className="text-sm text-gray-400 mb-1">GB Limit</span>}
+                                <div className="flex flex-col items-center justify-center bg-black/40 rounded-xl py-6 mb-6 border border-white/5">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-4xl font-bold text-white">{pack.kpc.toLocaleString()}</span>
+                                        <span className="text-sm font-bold text-gray-400 mt-2">KPC</span>
+                                    </div>
+                                    {pack.bonus > 0 && (
+                                        <div className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 mt-2">
+                                            +{pack.bonus.toLocaleString()} BONUS KPC
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="mt-auto pt-6 border-t border-white/10 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-400">Cost</span>
-                                    <span className={`text-lg font-bold flex items-center gap-1.5 ${isCurrent ? 'text-gray-500' : 'text-emerald-400'}`}>
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h2.45c.14.93 1.05 1.51 2.5 1.51 1.48 0 2.45-.66 2.45-1.63 0-1.11-1.07-1.48-2.65-1.94-2.1-.64-4.08-1.58-4.08-4.07 0-1.92 1.43-3.13 3.27-3.48V3.13h2.67v1.94c1.69.31 2.94 1.41 3.12 3.19h-2.43c-.15-.84-1-1.45-2.28-1.45-1.37 0-2.3.69-2.3 1.63 0 1.02.99 1.4 2.8 1.99 2.16.66 3.93 1.62 3.93 4.04 0 2.05-1.51 3.18-3.51 3.62z" /></svg>
-                                        {tier.price === 0 ? 'Free' : tier.price}
+                                <div className="mt-auto pt-4 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-400">Price (Paypal)</span>
+                                    <span className="text-2xl font-bold text-white">
+                                        {pack.price}
                                     </span>
                                 </div>
                             </div>
@@ -87,26 +91,26 @@ const PaywallModal = ({ onClose, currentTier, onUpgrade }) => {
                     })}
                 </div>
 
-                <div className="mt-8 flex justify-end">
+                <div className="mt-8 flex justify-end border-t border-cyan-900/30 pt-6">
                     <button
-                        onClick={handleUpgrade}
-                        disabled={!selectedTier || isProcessing || selectedTier.name === currentTier}
+                        onClick={handlePurchase}
+                        disabled={!selectedPack || isProcessing}
                         className={`
-                            px-8 py-3 rounded-xl font-bold tracking-wide transition-all relative overflow-hidden flex items-center justify-center min-w-[200px]
-                            ${(!selectedTier || isProcessing || selectedTier.name === currentTier)
+                            px-10 py-3 rounded-xl font-bold tracking-wide transition-all relative overflow-hidden flex items-center justify-center min-w-[250px]
+                            ${(!selectedPack || isProcessing)
                                 ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/10'
-                                : `bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_20px_rgba(0,243,255,0.4)] hover:shadow-[0_0_30px_rgba(0,243,255,0.6)]`}
+                                : `bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 shadow-[0_0_20px_rgba(0,243,255,0.4)] hover:shadow-[0_0_30px_rgba(0,243,255,0.6)]`}
                         `}
                     >
                         {isProcessing ? (
                             <div className="flex items-center gap-3">
-                                <div className="w-5 h-5 rounded-full border-2 border-gray-500 border-t-white animate-spin"></div>
-                                <span>Authorizing...</span>
+                                <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                                <span>Processing...</span>
                             </div>
-                        ) : selectedTier ? (
-                            `Purchase ${selectedTier.name} Rank`
+                        ) : selectedPack ? (
+                            `Buy ${selectedPack.name} (${selectedPack.price})`
                         ) : (
-                            'Select a Rank'
+                            'Select a Package'
                         )}
                     </button>
                 </div>
