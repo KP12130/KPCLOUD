@@ -5,6 +5,7 @@ const FileList = () => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPath, setCurrentPath] = useState('');
+    const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, item: null });
 
     const fetchFiles = async () => {
         setLoading(true);
@@ -33,8 +34,25 @@ const FileList = () => {
 
         const handleUploadEvent = () => fetchFiles();
         window.addEventListener('fileUploaded', handleUploadEvent);
-        return () => window.removeEventListener('fileUploaded', handleUploadEvent);
+
+        const handleClickOutside = () => setContextMenu({ visible: false, x: 0, y: 0, item: null });
+        window.addEventListener('click', handleClickOutside);
+
+        return () => {
+            window.removeEventListener('fileUploaded', handleUploadEvent);
+            window.removeEventListener('click', handleClickOutside);
+        };
     }, []);
+
+    const handleContextMenu = (e, item) => {
+        e.preventDefault();
+        setContextMenu({
+            visible: true,
+            x: e.clientX,
+            y: e.clientY,
+            item: item
+        });
+    };
 
     const handleDownload = async (item) => {
         if (item.isFolder) return;
@@ -201,7 +219,8 @@ const FileList = () => {
                             <div
                                 key={item.id}
                                 onDoubleClick={() => item.isFolder && setCurrentPath(item.fullPath)}
-                                className={`group flex items-center px-4 py-3 hover:bg-cyan-500/10 border-b border-cyan-900/10 transition-colors ${item.isFolder ? 'cursor-pointer' : ''}`}
+                                onContextMenu={(e) => handleContextMenu(e, item)}
+                                className={`group flex items-center px-4 py-3 border-b border-cyan-900/20 border-l-2 border-l-transparent hover:bg-cyan-900/30 hover:shadow-[inset_0_0_20px_rgba(0,243,255,0.15)] hover:border-l-cyan-400 transition-all ${item.isFolder ? 'cursor-pointer' : ''}`}
                             >
                                 {/* Name & Icon */}
                                 <div className="flex-[3] min-w-0 pr-4 flex items-center gap-4">
@@ -258,7 +277,8 @@ const FileList = () => {
                         <div
                             key={item.id}
                             onDoubleClick={() => item.isFolder && setCurrentPath(item.fullPath)}
-                            className={`group flex flex-col glass-panel bg-cyan-950/20 border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-cyan-900/30 rounded-2xl transition-all overflow-hidden relative ${item.isFolder ? 'cursor-pointer' : ''}`}
+                            onContextMenu={(e) => handleContextMenu(e, item)}
+                            className={`group flex flex-col glass-panel bg-cyan-950/20 border border-cyan-900/30 hover:border-cyan-400/50 hover:bg-cyan-900/40 hover:shadow-[0_0_20px_rgba(0,243,255,0.2)] rounded-2xl transition-all overflow-hidden relative ${item.isFolder ? 'cursor-pointer' : ''}`}
                         >
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1 z-10">
                                 {!item.isFolder && (
@@ -289,6 +309,35 @@ const FileList = () => {
                         </div>
                     ))}
                     {displayItems.length === 0 && <div className="col-span-full py-8 text-center text-gray-500 text-sm">Folder is empty.</div>}
+                </div>
+            )}
+
+            {/* Custom Context Menu */}
+            {contextMenu.visible && contextMenu.item && (
+                <div
+                    className="fixed z-50 bg-[#071318] border border-cyan-500/50 rounded-lg shadow-[0_0_20px_rgba(0,243,255,0.2)] py-2 min-w-[200px] text-sm text-gray-300 backdrop-blur-md"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="px-4 py-2 mb-2 border-b border-cyan-900/50 flex flex-col">
+                        <span className="font-bold text-cyan-400 truncate w-full">{contextMenu.item.displayName || contextMenu.item.name}</span>
+                        <span className="text-[10px] text-gray-500 uppercase">{contextMenu.item.type}</span>
+                    </div>
+
+                    {!contextMenu.item.isFolder && (
+                        <button
+                            onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                            className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
+                        >
+                            <span>📥</span> Download
+                        </button>
+                    )}
+                    <button
+                        onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                        className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
+                    >
+                        <span>🗑️</span> Delete
+                    </button>
                 </div>
             )}
         </div>

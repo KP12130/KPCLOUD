@@ -135,11 +135,14 @@ const Sidebar = () => {
                     <>
                         <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30 relative">
                             <div
-                                className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.8)] transition-all duration-1000"
+                                className={`h-full transition-all duration-1000 ${storage.percentage > 90
+                                    ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.9)] animate-pulse'
+                                    : 'bg-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.8)]'
+                                    }`}
                                 style={{ width: `${storage.percentage}%` }}
                             ></div>
                         </div>
-                        <p className="text-[11px] text-gray-500 mt-2 font-sans tracking-wide">
+                        <p className={`text-[11px] mt-2 font-sans tracking-wide transition-colors ${storage.percentage > 90 ? 'text-rose-400 font-bold' : 'text-gray-500'}`}>
                             {storage.usedGB} GB / {storage.totalGB} GB used ({storage.tier})
                         </p>
                     </>
