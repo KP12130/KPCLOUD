@@ -119,7 +119,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 });
 
 // API: Download File from R2
-app.get('/api/download/:filename', async (req, res) => {
+app.get('/api/download/:filename(*)', async (req, res) => {
     try {
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
@@ -140,7 +140,7 @@ app.get('/api/download/:filename', async (req, res) => {
 });
 
 // API: Delete File from R2
-app.delete('/api/delete/:filename', async (req, res) => {
+app.delete('/api/delete/:filename(*)', async (req, res) => {
     try {
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
