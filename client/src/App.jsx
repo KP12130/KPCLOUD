@@ -16,35 +16,47 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeDoc = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      // Cleanup previous listener if any
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+        unsubscribeDoc = null;
+      }
+
       setUser(currentUser);
 
       if (currentUser) {
-        // Sync withFirestore
         const userRef = doc(db, 'users', currentUser.uid);
 
         // Ensure user document exists
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            kpcBalance: 500, // Starting gift
-            monthlyQuota: 1,
-            email: currentUser.email,
-            displayName: currentUser.displayName
+        try {
+          const userSnap = await getDoc(userRef);
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              kpcBalance: 500,
+              monthlyQuota: 1,
+              email: currentUser.email,
+              displayName: currentUser.displayName
+            });
+          }
+
+          // Real-time listener
+          unsubscribeDoc = onSnapshot(userRef, (doc) => {
+            if (doc.exists()) {
+              const data = doc.data();
+              setKpcBalance(data.kpcBalance || 0);
+              setMonthlyQuota(data.monthlyQuota || 1);
+            }
+          }, (error) => {
+            console.error("Firestore Listener Error:", error);
           });
+        } catch (err) {
+          console.error("Firestore Initial Sync Error:", err);
         }
 
-        // Real-time listener
-        const unsubscribeDoc = onSnapshot(userRef, (doc) => {
-          if (doc.exists()) {
-            const data = doc.data();
-            setKpcBalance(data.kpcBalance || 0);
-            setMonthlyQuota(data.monthlyQuota || 1);
-          }
-        });
-
         setLoading(false);
-        return () => unsubscribeDoc();
       } else {
         setKpcBalance(0);
         setMonthlyQuota(1);
@@ -52,7 +64,10 @@ function App() {
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) unsubscribeDoc();
+    };
   }, []);
 
   const handleTopUp = async (amount) => {
