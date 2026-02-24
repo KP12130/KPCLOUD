@@ -297,16 +297,12 @@ const FileList = ({ currentMenu = 'My Data' }) => {
 
                                 {/* Actions */}
                                 <div className="w-20 flex justify-end gap-1 pr-1">
-                                    {!item.isFolder && (
-                                        <>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-cyan-500/20 text-cyan-400 transition-all" title="Download">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                            </button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-500 transition-all" title="Delete">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                            </button>
-                                        </>
-                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-cyan-500/20 text-cyan-400 transition-all" title="Download">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-500 transition-all" title="Delete">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -328,16 +324,12 @@ const FileList = ({ currentMenu = 'My Data' }) => {
                             className={`group flex flex-col glass-panel bg-cyan-950/20 border border-cyan-900/30 hover:border-cyan-400/50 hover:bg-cyan-900/40 hover:shadow-[0_0_20px_rgba(0,243,255,0.2)] rounded-2xl transition-all overflow-hidden relative ${item.isFolder ? 'cursor-pointer' : ''}`}
                         >
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1 z-10">
-                                {!item.isFolder && (
-                                    <>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-1.5 rounded-full bg-cyan-900/80 hover:bg-cyan-500 text-cyan-50 transition-colors shadow-lg shadow-black/50" title="Download">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="p-1.5 rounded-full bg-red-900/80 hover:bg-red-500 text-red-50 transition-colors shadow-lg shadow-black/50" title="Delete">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                        </button>
-                                    </>
-                                )}
+                                <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-1.5 rounded-full bg-cyan-900/80 hover:bg-cyan-500 text-cyan-50 transition-colors shadow-lg shadow-black/50" title={item.isFolder ? "Download as ZIP" : "Download"}>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="p-1.5 rounded-full bg-red-900/80 hover:bg-red-500 text-red-50 transition-colors shadow-lg shadow-black/50" title="Delete">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
                             </div>
                             <div className="h-32 flex items-center justify-center bg-black/40 border-b border-cyan-900/20 relative">
                                 {starredFiles[item.fullPath] && <span className="absolute top-2 left-2 text-sm z-10">⭐</span>}
