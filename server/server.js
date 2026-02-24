@@ -139,6 +139,32 @@ app.get('/api/download/:filename(*)', async (req, res) => {
     }
 });
 
+// API: Generate Pre-signed URL for direct R2 Upload
+app.post('/api/upload/presign', async (req, res) => {
+    try {
+        const { filename, contentType } = req.body;
+        if (!filename) {
+            return res.status(400).json({ error: 'Filename is required' });
+        }
+        if (!s3) {
+            return res.status(500).json({ error: 'R2 Client not initialized' });
+        }
+
+        const command = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: filename,
+            ContentType: contentType || 'application/octet-stream'
+        });
+
+        // Generate a URL valid for 1 hour
+        const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+        res.json({ url, key: filename });
+    } catch (error) {
+        console.error("Presign URL Error:", error);
+        res.status(500).json({ error: 'Failed to generate pre-signed URL' });
+    }
+});
+
 // API: Delete File from R2
 app.delete('/api/delete/:filename(*)', async (req, res) => {
     try {

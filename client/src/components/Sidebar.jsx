@@ -4,6 +4,7 @@ const Sidebar = ({ currentMenu, setCurrentMenu }) => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const folderInputRef = useRef(null);
 
     useEffect(() => {
@@ -29,29 +30,59 @@ const Sidebar = ({ currentMenu, setCurrentMenu }) => {
         if (!files || files.length === 0) return;
 
         setUploading(true);
+        setUploadProgress(0);
         let successCount = 0;
+
+        // Calculate total bytes for progress bar
+        let totalBytes = 0;
+        for (let i = 0; i < files.length; i++) {
+            totalBytes += files[i].size;
+        }
+        let uploadedBytes = 0;
 
         try {
             // Upload files sequentially to avoid overloading the browser for huge folders
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const formData = new FormData();
-                formData.append('file', file);
-
-                // Preserve relative path if it's a folder upload, otherwise use normal name
                 const filePath = file.webkitRelativePath || file.name;
-                formData.append('path', filePath);
 
-                const response = await fetch('/api/upload', {
+                // 1. Get Presigned URL
+                const presignRes = await fetch('/api/upload/presign', {
                     method: 'POST',
-                    body: formData,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: filePath, contentType: file.type || 'application/octet-stream' })
                 });
 
-                if (response.ok) {
-                    successCount++;
-                } else {
-                    console.error(`Upload failed for ${filePath}`);
-                }
+                if (!presignRes.ok) throw new Error("Failed to get presigned URL");
+                const { url } = await presignRes.json();
+
+                // 2. Upload via XMLHttpRequest for progress tracking
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('PUT', url, true);
+                    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+                    xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                            const currentFileProgress = event.loaded;
+                            const overallProgress = Math.round(((uploadedBytes + currentFileProgress) / totalBytes) * 100);
+                            setUploadProgress(Math.min(overallProgress, 100));
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status === 200 || xhr.status === 201) {
+                            uploadedBytes += file.size; // commit the size
+                            successCount++;
+                            resolve();
+                        } else {
+                            reject(new Error(`Upload failed with status ${xhr.status}`));
+                        }
+                    };
+
+                    xhr.onerror = () => reject(new Error("XHR Error"));
+                    xhr.send(file);
+                });
             }
 
             if (successCount > 0) {
@@ -59,8 +90,10 @@ const Sidebar = ({ currentMenu, setCurrentMenu }) => {
             }
         } catch (error) {
             console.error("Error uploading:", error);
+            alert("Upload failed. Ensure R2 is configured correctly.");
         } finally {
             setUploading(false);
+            setUploadProgress(0);
             e.target.value = null; // reset input
         }
     };
@@ -95,17 +128,29 @@ const Sidebar = ({ currentMenu, setCurrentMenu }) => {
                 <button
                     onClick={() => fileInputRef.current.click()}
                     disabled={uploading}
-                    className={`w-full py-2.5 px-4 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-xl ${uploading ? 'opacity-50 cursor-wait' : ''}`}
+                    className={`w-full py-2.5 px-4 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-xl ${uploading ? 'opacity-80 cursor-wait' : ''} relative overflow-hidden`}
                 >
-                    <span className="text-lg leading-none -mt-0.5">{uploading ? '...' : '+'}</span>
-                    {uploading ? 'Uploading...' : 'Upload File(s)'}
+                    {uploading && (
+                        <div
+                            className="absolute left-0 top-0 bottom-0 bg-cyan-500/30 transition-all duration-300 z-0"
+                            style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                    )}
+                    <span className="text-lg leading-none -mt-0.5 relative z-10">{uploading ? '...' : '+'}</span>
+                    <span className="relative z-10">{uploading ? `Uploading... ${uploadProgress}%` : 'Upload File(s)'}</span>
                 </button>
                 <button
                     onClick={() => folderInputRef.current.click()}
                     disabled={uploading}
-                    className={`w-full py-2.5 px-4 bg-cyan-950/20 border border-cyan-400/10 text-cyan-400/80 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 text-xs font-medium tracking-wide rounded-xl ${uploading ? 'opacity-50 cursor-wait' : ''}`}
+                    className={`w-full py-2.5 px-4 bg-cyan-950/20 border border-cyan-400/10 text-cyan-400/80 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 text-xs font-medium tracking-wide rounded-xl ${uploading ? 'opacity-80 cursor-wait' : ''} relative overflow-hidden`}
                 >
-                    📁 {uploading ? 'Uploading...' : 'Upload Folder'}
+                    {uploading && (
+                        <div
+                            className="absolute left-0 top-0 bottom-0 bg-cyan-500/20 transition-all duration-300 z-0"
+                            style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                    )}
+                    <span className="relative z-10">📁 {uploading ? `Uploading... ${uploadProgress}%` : 'Upload Folder'}</span>
                 </button>
             </div>
 
