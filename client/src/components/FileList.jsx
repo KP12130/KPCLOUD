@@ -11,7 +11,14 @@ const FileList = () => {
             // Fetch from the Express backend
             const response = await fetch('/api/files');
             const data = await response.json();
-            setFiles(data);
+
+            // Safeguard: Ensure data is an array before setting state
+            if (Array.isArray(data)) {
+                setFiles(data);
+            } else {
+                console.warn("Backend returned non-array data:", data);
+                setFiles([]);
+            }
         } catch (error) {
             console.error("Error fetching files from server:", error);
             setFiles([]); // Handle error gracefully
