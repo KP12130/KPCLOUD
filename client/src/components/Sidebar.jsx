@@ -25,16 +25,6 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
         return () => window.removeEventListener('fileUploaded', fetchStorage);
     }, []);
 
-    // Calculate daily burn rate: 0 KPC for 1GB or less, 5 KPC per additional GB
-    const calculateBurnRate = () => {
-        if (!storage) return 0;
-        const usedGB = parseFloat(storage.usedGB);
-        if (usedGB <= 1) return 0;
-        return Math.ceil(usedGB - 1) * 5;
-    };
-
-    const burnRate = calculateBurnRate();
-
     const handleUpload = async (e) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
@@ -188,20 +178,26 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
                 </div>
 
                 {storage ? (
-                    <>
-                        <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30 relative">
-                            <div
-                                className={`h-full transition-all duration-1000 ${storage.percentage > 90
-                                    ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.9)] animate-pulse'
-                                    : 'bg-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.8)]'
-                                    }`}
-                                style={{ width: `${storage.percentage}%` }}
-                            ></div>
-                        </div>
-                        <p className={`text-[11px] mt-2 font-sans tracking-wide transition-colors ${storage.percentage > 90 ? 'text-rose-400 font-bold' : 'text-gray-500'}`}>
-                            {storage.usedGB} GB used of {monthlyQuota || 1} GB
-                        </p>
-                    </>
+                    (() => {
+                        const quota = monthlyQuota || 1;
+                        const percentage = Math.min(((parseFloat(storage.usedGB) / quota) * 100), 100).toFixed(1);
+                        return (
+                            <>
+                                <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30 relative">
+                                    <div
+                                        className={`h-full transition-all duration-1000 ${percentage > 90
+                                            ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.9)] animate-pulse'
+                                            : 'bg-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.8)]'
+                                            }`}
+                                        style={{ width: `${percentage}%` }}
+                                    ></div>
+                                </div>
+                                <p className={`text-[11px] mt-2 font-sans tracking-wide transition-colors ${percentage > 90 ? 'text-rose-400 font-bold' : 'text-gray-500'}`}>
+                                    {storage.usedGB} GB used of {quota} GB
+                                </p>
+                            </>
+                        );
+                    })()
                 ) : (
                     <div className="animate-pulse h-1.5 bg-cyan-900/50 rounded-full w-full"></div>
                 )}
