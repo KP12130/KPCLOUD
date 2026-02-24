@@ -16,7 +16,10 @@ function App() {
       <div className="bg-vignette"></div>
 
       {/* Top Header */}
-      <Header />
+      <Header
+        kpcBalance={kpcBalance}
+        onOpenStore={() => setIsPaywallOpen(true)}
+      />
 
       {/* Main Layout Area */}
       <div className="flex-1 flex overflow-hidden">

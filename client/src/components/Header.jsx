@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = () => {
+const Header = ({ kpcBalance, onOpenStore }) => {
     return (
         <header className="h-16 w-full flex items-center justify-between px-4 z-20 shrink-0">
             {/* Logo Area (matches Sidebar width typically, or just natural width) */}
@@ -30,6 +30,18 @@ const Header = () => {
 
             {/* Right Side Icons */}
             <div className="flex items-center gap-2 pr-2">
+                {/* KPC Balance Display */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-950/30 border border-cyan-500/20 rounded-full mr-2 shadow-[0_0_15px_rgba(0,243,255,0.05)]">
+                    <span className="text-emerald-400 text-sm">💎</span>
+                    <span className="text-sm font-bold text-white font-mono">{(kpcBalance || 0).toLocaleString()}</span>
+                    <button
+                        onClick={onOpenStore}
+                        className="ml-1.5 w-5 h-5 flex items-center justify-center bg-cyan-500 text-black rounded-full font-bold text-xs hover:bg-cyan-400 transition-all shadow-[0_0_10px_rgba(0,243,255,0.5)] active:scale-95"
+                    >
+                        +
+                    </button>
+                </div>
+
                 <button className="p-2 text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-all">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 </button>
