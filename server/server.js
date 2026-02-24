@@ -37,10 +37,13 @@ const getFileType = (filename) => {
 // API: Get Files from R2
 app.get('/api/files', async (req, res) => {
     try {
+        console.log("--> GET /api/files endpoint hit");
         if (!s3) {
+            console.error("s3 client is undefined. Are R2 env vars set? (ACCESS_KEY_ID, SECRET_ACCESS_KEY, ACCOUNT_ID)");
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
+        console.log(`Executing ListObjectsV2Command for bucket: ${BUCKET_NAME}`);
         const command = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
         });
@@ -67,21 +70,25 @@ app.get('/api/files', async (req, res) => {
 
         res.json(r2Files);
     } catch (error) {
-        console.error("Failed to list objects:", error);
-        res.status(500).json({ error: 'Failed to read from R2' });
+        console.error("Failed to list objects in /api/files:", error.message, error.stack);
+        res.status(500).json({ error: 'Failed to read from R2', details: error.message });
     }
 });
 
 // API: Upload File to R2
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
+        console.log("--> POST /api/upload endpoint hit");
         if (!req.file) {
+            console.warn("No file object received in req.file");
             return res.status(400).json({ error: 'No file uploaded' });
         }
         if (!s3) {
+            console.error("s3 client is undefined during upload.");
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
+        console.log(`Executing PutObjectCommand for file: ${req.file.originalname}`);
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
             Key: req.file.originalname,
@@ -90,10 +97,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         });
 
         await s3.send(command);
+        console.log("Upload successful");
         res.json({ message: 'Upload successful', filename: req.file.originalname });
     } catch (error) {
-        console.error("Upload Error:", error);
-        res.status(500).json({ error: 'Failed to upload to R2' });
+        console.error("Upload Error in /api/upload:", error.message, error.stack);
+        res.status(500).json({ error: 'Failed to upload to R2', details: error.message });
     }
 });
 
