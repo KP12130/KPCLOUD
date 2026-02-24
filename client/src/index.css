@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg-color: #030303;
+  --accent-blue: #00f3ff;
+  --accent-green: #39ff14;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(0, 243, 255, 0.2);
+  --neon-glow: 0 0 10px rgba(0, 243, 255, 0.5), 0 0 20px rgba(0, 243, 255, 0.3);
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Background Grid Pattern */
+.bg-grid {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.bg-vignette {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, transparent 0%, var(--bg-color) 80%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.neon-border-blue {
+  border: 1px solid var(--accent-blue);
+  box-shadow: 0 0 5px var(--accent-blue);
+}
+
+.neon-border-green {
+  border: 1px solid var(--accent-green);
+  box-shadow: 0 0 5px var(--accent-green);
+}
+
+.neon-text-blue {
+  color: var(--accent-blue);
+  text-shadow: 0 0 8px rgba(0, 243, 255, 0.8);
+}
+
+.neon-text-green {
+  color: var(--accent-green);
+  text-shadow: 0 0 8px rgba(57, 255, 20, 0.8);
+}
+
+/* Animations */
+@keyframes pulse-border {
+  0% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
+  50% { border-color: rgba(0, 243, 255, 1); box-shadow: 0 0 15px rgba(0, 243, 255, 0.5); }
+  100% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
+}
+
+.animate-pulse-neon {
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+button {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: var(--font-mono);
+}
+
+button:hover {
+  transform: translateY(-2px);
+}
