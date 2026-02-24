@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const Sidebar = () => {
     const [storage, setStorage] = useState(null);
+    const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         const fetchStorage = async () => {
@@ -15,7 +17,37 @@ const Sidebar = () => {
         };
 
         fetchStorage();
+
+        // Also refresh storage when files change
+        window.addEventListener('fileUploaded', fetchStorage);
+        return () => window.removeEventListener('fileUploaded', fetchStorage);
     }, []);
+
+    const handleUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (response.ok) {
+                window.dispatchEvent(new Event('fileUploaded'));
+            } else {
+                console.error("Upload failed");
+            }
+        } catch (error) {
+            console.error("Error uploading:", error);
+        } finally {
+            setUploading(false);
+            e.target.value = null; // reset input
+        }
+    };
 
     const menuItems = [
         { name: 'My Data', icon: '☁️', active: true },
@@ -27,9 +59,20 @@ const Sidebar = () => {
     return (
         <aside className="w-64 h-full flex flex-col py-4 z-10 shrink-0 border-r border-transparent">
             {/* New Button */}
-            <div className="px-4 mb-6">
-                <button className="py-3 px-6 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-2xl">
-                    <span className="text-xl leading-none -mt-0.5">+</span> Upload
+            <div className="px-4 mb-6 relative">
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleUpload}
+                />
+                <button
+                    onClick={() => fileInputRef.current.click()}
+                    disabled={uploading}
+                    className={`w-full py-3 px-6 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-2xl ${uploading ? 'opacity-50 cursor-wait' : ''}`}
+                >
+                    <span className="text-xl leading-none -mt-0.5">{uploading ? '...' : '+'}</span>
+                    {uploading ? 'Uploading...' : 'Upload'}
                 </button>
             </div>
 
@@ -39,8 +82,8 @@ const Sidebar = () => {
                     <div
                         key={item.name}
                         className={`flex items-center gap-4 px-4 py-2 rounded-full cursor-pointer transition-colors ${item.active
-                                ? 'bg-cyan-500/15 text-cyan-400'
-                                : 'text-gray-400 hover:bg-cyan-500/5 hover:text-gray-200'
+                            ? 'bg-cyan-500/15 text-cyan-400'
+                            : 'text-gray-400 hover:bg-cyan-500/5 hover:text-gray-200'
                             }`}
                     >
                         <span className="text-base opacity-90">{item.icon}</span>

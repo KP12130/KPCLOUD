@@ -14,65 +14,162 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', project: 'KPCloud', grid_sync: true });
 });
 
-const fs = require('fs');
+const { s3 } = require('./config/r2');
+const { ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
-// API: Get Real Files from standard folder
-app.get('/api/files', (req, res) => {
+const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'kp-cloud-storage';
+
+// Helper to determine file type from extension
+const getFileType = (filename) => {
+    const ext = path.extname(filename).toLowerCase();
+    if (['.js', '.jsx', '.ts', '.tsx'].includes(ext)) return 'SCRIPT';
+    if (['.css', '.scss', '.html'].includes(ext)) return 'DESIGN';
+    if (['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'].includes(ext)) return 'IMAGE';
+    if (['.pdf', '.txt', '.doc', '.docx', '.md'].includes(ext)) return 'DOCUMENT';
+    if (['.zip', '.tar', '.gz', '.rar'].includes(ext)) return 'ARCHIVE';
+    if (['.json', '.yaml', '.xml', 'config'].includes(ext)) return 'SYSTEM';
+    return 'DOCUMENT';
+};
+
+// API: Get Files from R2
+app.get('/api/files', async (req, res) => {
     try {
-        // Read the actual project client side source folder as a demo
-        const targetDir = path.join(__dirname, '../client/src');
-
-        if (!fs.existsSync(targetDir)) {
-            return res.json([]);
+        if (!s3) {
+            return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
-        const items = fs.readdirSync(targetDir);
+        const command = new ListObjectsV2Command({
+            Bucket: BUCKET_NAME,
+        });
 
-        const realFiles = items.map((item, index) => {
-            const itemPath = path.join(targetDir, item);
-            const stats = fs.statSync(itemPath);
-            const isDir = stats.isDirectory();
+        const response = await s3.send(command);
+        const items = response.Contents || [];
 
-            // Format size
-            const sizeInBytes = stats.size;
+        const r2Files = items.map((item, index) => {
+            const sizeInBytes = item.Size;
             let formattedSize = sizeInBytes + ' B';
             if (sizeInBytes > 1024 * 1024) formattedSize = (sizeInBytes / (1024 * 1024)).toFixed(1) + ' MB';
             else if (sizeInBytes > 1024) formattedSize = (sizeInBytes / 1024).toFixed(1) + ' KB';
-            if (isDir) formattedSize = '--';
-
-            // Determine Icon Type
-            let fileType = 'DOCUMENT';
-            if (isDir) fileType = 'ARCHIVE';
-            else if (item.endsWith('.js') || item.endsWith('.jsx')) fileType = 'SCRIPT';
-            else if (item.endsWith('.css')) fileType = 'DESIGN';
-            else if (item.includes('config')) fileType = 'SYSTEM';
 
             return {
-                id: index + 1,
-                name: item,
+                id: item.ETag || index + 1,
+                name: item.Key,
                 size: formattedSize,
-                type: fileType,
-                modified: stats.mtime.toLocaleDateString(),
+                sizeBytes: sizeInBytes,
+                type: getFileType(item.Key),
+                modified: item.LastModified ? item.LastModified.toLocaleDateString() : new Date().toLocaleDateString(),
                 owner: 'me'
             };
         });
 
-        res.json(realFiles);
-
+        res.json(r2Files);
     } catch (error) {
-        console.error("Failed to read directory:", error);
-        res.status(500).json({ error: 'Failed to read directory' });
+        console.error("Failed to list objects:", error);
+        res.status(500).json({ error: 'Failed to read from R2' });
+    }
+});
+
+// API: Upload File to R2
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        if (!s3) {
+            return res.status(500).json({ error: 'R2 Client not initialized' });
+        }
+
+        const command = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: req.file.originalname,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype,
+        });
+
+        await s3.send(command);
+        res.json({ message: 'Upload successful', filename: req.file.originalname });
+    } catch (error) {
+        console.error("Upload Error:", error);
+        res.status(500).json({ error: 'Failed to upload to R2' });
+    }
+});
+
+// API: Download File from R2
+app.get('/api/download/:filename', async (req, res) => {
+    try {
+        if (!s3) {
+            return res.status(500).json({ error: 'R2 Client not initialized' });
+        }
+
+        const command = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: req.params.filename,
+        });
+
+        const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+        res.json({ url });
+    } catch (error) {
+        console.error("Download Error:", error);
+        res.status(500).json({ error: 'Failed to generate download link' });
+    }
+});
+
+// API: Delete File from R2
+app.delete('/api/delete/:filename', async (req, res) => {
+    try {
+        if (!s3) {
+            return res.status(500).json({ error: 'R2 Client not initialized' });
+        }
+        const command = new DeleteObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: req.params.filename,
+        });
+        await s3.send(command);
+        res.json({ message: 'File deleted' });
+    } catch (error) {
+        console.error("Delete Error:", error);
+        res.status(500).json({ error: 'Failed to delete file' });
     }
 });
 
 // API: Get Storage Allocation
-app.get('/api/storage', (req, res) => {
-    res.json({
-        tier: 'Operative',
-        usedGB: 1.2,
-        totalGB: 50,
-        percentage: 2.4
-    });
+app.get('/api/storage', async (req, res) => {
+    try {
+        if (!s3) {
+            return res.json({ tier: 'Operative', usedGB: 0, totalGB: 50, percentage: 0 });
+        }
+
+        // Note: For a very large bucket, ListObjectsV2 might be too slow.
+        // For this demo, we assume the bucket is small enough to list all.
+        const command = new ListObjectsV2Command({
+            Bucket: BUCKET_NAME,
+        });
+
+        const response = await s3.send(command);
+        const items = response.Contents || [];
+
+        let totalBytes = 0;
+        items.forEach(item => {
+            totalBytes += item.Size;
+        });
+
+        const usedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(3);
+        const totalGB = 50;
+        const percentage = ((usedGB / totalGB) * 100).toFixed(2);
+
+        res.json({
+            tier: 'Operative',
+            usedGB: parseFloat(usedGB),
+            totalGB: totalGB,
+            percentage: parseFloat(percentage)
+        });
+    } catch (error) {
+        console.error("Storage Error:", error);
+        res.json({ tier: 'Operative', usedGB: 0, totalGB: 50, percentage: 0 });
+    }
 });
 
 // SPA Catch-all
