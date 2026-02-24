@@ -6,7 +6,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Converter State
-    const [targetQuota, setTargetQuota] = useState(currentQuota);
+    const [extraQuota, setExtraQuota] = useState(0); // This is the ADDED quota
     const [features, setFeatures] = useState({
         highSpeed: false,
         apiAccess: false,
@@ -20,7 +20,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
     ];
 
     const calculateMonthlyCost = () => {
-        const storageCost = Math.max(0, targetQuota - 1) * 150;
+        const storageCost = extraQuota * 150;
         const featuresCost = (features.highSpeed ? 100 : 0) + (features.apiAccess ? 1000 : 0) + (features.protection ? 50 : 0);
         return storageCost + featuresCost;
     };
@@ -37,13 +37,13 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
 
     const handleApplyConfig = async () => {
         const cost = calculateMonthlyCost();
-        if (kpcBalance < cost) {
+        if (cost > 0 && kpcBalance < cost) {
             alert("Inszignifikáns KPC egyenleg! Kérlek töltsd fel a számládat.");
             setActiveTab('store');
             return;
         }
         setIsProcessing(true);
-        await onApplyConfig(targetQuota, cost);
+        await onApplyConfig(currentQuota + extraQuota, cost);
         setIsProcessing(false);
         onClose();
     };
@@ -120,23 +120,24 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                 <div className="mb-12 bg-black/40 p-8 rounded-3xl border border-white/5">
                                     <div className="flex items-center justify-between mb-8">
                                         <div>
-                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Target Storage Quota</div>
-                                            <div className="text-4xl font-black text-white">{targetQuota} <span className="text-lg text-cyan-500">GB</span></div>
+                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Storage Expansion</div>
+                                            <div className="text-4xl font-black text-white">+{extraQuota} <span className="text-lg text-cyan-500">GB</span></div>
+                                            <div className="text-[11px] text-gray-500 mt-1">New Total: <span className="text-white font-bold">{currentQuota + extraQuota} GB</span></div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Storage Cost</div>
-                                            <div className="text-2xl font-bold text-emerald-400 font-mono">-{Math.max(0, targetQuota - 1) * 150} KPC</div>
-                                            <div className="text-[10px] text-gray-600">Per Month</div>
+                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Expansion Cost</div>
+                                            <div className="text-2xl font-bold text-emerald-400 font-mono">-{extraQuota * 150} KPC</div>
+                                            <div className="text-[10px] text-gray-600">One-time upgrade</div>
                                         </div>
                                     </div>
 
                                     <input
                                         type="range"
-                                        min="1"
+                                        min="0"
                                         max="500"
                                         step="1"
-                                        value={targetQuota}
-                                        onChange={(e) => setTargetQuota(parseInt(e.target.value))}
+                                        value={extraQuota}
+                                        onChange={(e) => setExtraQuota(parseInt(e.target.value))}
                                         className="w-full h-2 bg-cyan-950 rounded-lg appearance-none cursor-pointer accent-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.2)]"
                                     />
                                     <div className="flex justify-between mt-4 text-[10px] font-bold text-gray-600 uppercase tracking-tighter">
