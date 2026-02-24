@@ -8,7 +8,7 @@
   --text-secondary: rgba(255, 255, 255, 0.7);
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(0, 243, 255, 0.2);
-  --neon-glow: 0 0 10px rgba(0, 243, 255, 0.5), 0 0 20px rgba(0, 243, 255, 0.3);
+  --neon-glow: 0 0 10px rgba(0, 243, 255, 0.3), 0 0 20px rgba(0, 243, 255, 0.1);
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -22,81 +22,130 @@ body {
   background-color: var(--bg-color);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  overflow-x: hidden;
-  min-height: 100vh;
+  overflow: hidden;
 }
 
-/* Background Grid Pattern */
+/* Background Effects */
 .bg-grid {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
+  inset: 0;
+  background-image:
     linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
   background-size: 50px 50px;
-  z-index: -1;
-  pointer-events: none;
+  z-index: -2;
 }
 
 .bg-vignette {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at center, transparent 0%, var(--bg-color) 80%);
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0%, rgba(3, 3, 3, 0.95) 100%);
   z-index: -1;
-  pointer-events: none;
 }
 
-/* Glassmorphism Utilities */
-.glass {
+/* Glassmorphism */
+.glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
 }
 
-.neon-border-blue {
+.neon-border {
   border: 1px solid var(--accent-blue);
-  box-shadow: 0 0 5px var(--accent-blue);
-}
-
-.neon-border-green {
-  border: 1px solid var(--accent-green);
-  box-shadow: 0 0 5px var(--accent-green);
+  box-shadow: var(--neon-glow);
 }
 
 .neon-text-blue {
   color: var(--accent-blue);
-  text-shadow: 0 0 8px rgba(0, 243, 255, 0.8);
+  text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
 }
 
-.neon-text-green {
-  color: var(--accent-green);
-  text-shadow: 0 0 8px rgba(57, 255, 20, 0.8);
+/* Layout System */
+.dashboard-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
 }
 
-/* Animations */
-@keyframes pulse-border {
-  0% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
-  50% { border-color: rgba(0, 243, 255, 1); box-shadow: 0 0 15px rgba(0, 243, 255, 0.5); }
-  100% { border-color: rgba(0, 243, 255, 0.3); box-shadow: 0 0 5px rgba(0, 243, 255, 0.2); }
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.animate-pulse-neon {
-  animation: pulse-border 2s infinite ease-in-out;
+.content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 24px 24px;
 }
 
-button {
+/* Navigation & Sidebar */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  margin-right: 12px;
+  border-radius: 0 50px 50px 0;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: var(--font-mono);
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
-button:hover {
-  transform: translateY(-2px);
+.sidebar-item:hover {
+  background: rgba(0, 243, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.sidebar-item.active {
+  background: rgba(0, 243, 255, 0.1);
+  color: var(--accent-blue);
+  border-right: 2px solid var(--accent-blue);
+}
+
+/* File Views */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Scrollers */
+.content-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 243, 255, 0.1);
+  border-radius: 10px;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
