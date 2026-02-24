@@ -13,6 +13,18 @@ process.on('unhandledRejection', (reason, promise) => {
     process.exit(1);
 });
 
+const admin = require('firebase-admin');
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+        }),
+    });
+}
+const db = admin.firestore();
+
 const app = express();
 
 app.use(cors());
@@ -298,12 +310,24 @@ app.delete('/api/delete/:filename(*)', async (req, res) => {
 // API: Get Storage Allocation
 app.get('/api/storage', async (req, res) => {
     try {
-        if (!s3) {
-            return res.json({ tier: 'Operative', usedGB: 0, totalGB: 50, percentage: 0, rawTotalBytes: 0 });
+        const uid = req.query.uid;
+        let totalGB = 1; // Default fallback
+
+        if (uid) {
+            try {
+                const userDoc = await db.collection('users').doc(uid).get();
+                if (userDoc.exists) {
+                    totalGB = userDoc.data().monthlyQuota || 1;
+                }
+            } catch (fsErr) {
+                console.error("Firestore Quota Fetch Error:", fsErr);
+            }
         }
 
-        // Note: For a very large bucket, ListObjectsV2 might be too slow.
-        // For this demo, we assume the bucket is small enough to list all.
+        if (!s3) {
+            return res.json({ tier: 'Operative', usedGB: 0, totalGB, percentage: 0, rawTotalBytes: 0 });
+        }
+
         const command = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
         });
@@ -317,7 +341,6 @@ app.get('/api/storage', async (req, res) => {
         });
 
         const usedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(3);
-        const totalGB = 1; // 1GB quota
         const percentage = Math.min(((usedGB / totalGB) * 100), 100).toFixed(1);
 
         res.json({

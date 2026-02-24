@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { auth } from '../firebase';
 
 const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthlyQuota }) => {
     const [storage, setStorage] = useState(null);
@@ -10,7 +11,9 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
     useEffect(() => {
         const fetchStorage = async () => {
             try {
-                const response = await fetch('/api/storage');
+                const uid = auth.currentUser?.uid;
+                const url = uid ? `/api/storage?uid=${uid}` : '/api/storage';
+                const response = await fetch(url);
                 const data = await response.json();
                 setStorage(data);
             } catch (error) {
