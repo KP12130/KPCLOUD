@@ -2,51 +2,49 @@ import React from 'react';
 
 const Sidebar = () => {
     const menuItems = [
-        { name: 'My Files', icon: '📁', active: true },
-        { name: 'Recent', icon: '🕒', active: false },
+        { name: 'My Data', icon: '☁️', active: true },
+        { name: 'Recent Activity', icon: '🕒', active: false },
         { name: 'Starred', icon: '⭐', active: false },
-        { name: 'Trash', icon: '🗑️', active: false },
+        { name: 'Trash Bin', icon: '🗑️', active: false },
     ];
 
     return (
-        <aside className="w-64 h-full glass-panel border-r border-cyan-900/30 flex flex-col py-8 z-20">
-            <div className="px-6 mb-12 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-cyan-700/30 border border-cyan-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(0,243,255,0.3)]">
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
-                </div>
-                <div className="flex flex-col">
-                    <span className="text-xl font-bold tracking-tighter neon-text-blue">KPCloud</span>
-                    <span className="text-[8px] text-cyan-500/50 uppercase tracking-[0.4em] -mt-1 ml-0.5">Operative Tier</span>
-                </div>
+        <aside className="w-64 h-full flex flex-col py-4 z-10 shrink-0 border-r border-transparent">
+            {/* New Button */}
+            <div className="px-4 mb-6">
+                <button className="py-3 px-6 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-2xl">
+                    <span className="text-xl leading-none -mt-0.5">+</span> Upload
+                </button>
             </div>
 
-            <button className="mx-6 mb-8 py-3.5 glass-panel border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-3 text-[10px] font-bold tracking-[0.2em] shadow-[0_0_10px_rgba(0,243,255,0.05)]">
-                <span className="text-lg leading-none">+</span> TRANSMIT DATA
-            </button>
-
-            <nav className="flex-1 space-y-1">
+            {/* Navigation */}
+            <nav className="flex-1 space-y-1 px-3">
                 {menuItems.map((item) => (
                     <div
                         key={item.name}
-                        className={`sidebar-item ${item.active ? 'active' : ''}`}
+                        className={`flex items-center gap-4 px-4 py-2 rounded-full cursor-pointer transition-colors ${item.active
+                                ? 'bg-cyan-500/15 text-cyan-400'
+                                : 'text-gray-400 hover:bg-cyan-500/5 hover:text-gray-200'
+                            }`}
                     >
-                        <span className="text-lg opacity-80">{item.icon}</span>
-                        <span className="font-bold uppercase tracking-wider">{item.name}</span>
+                        <span className="text-base opacity-90">{item.icon}</span>
+                        <span className="font-medium text-[13px]">{item.name}</span>
                     </div>
                 ))}
             </nav>
 
-            <div className="px-6 mt-auto">
-                <div className="p-5 glass-panel border border-cyan-900/20 bg-cyan-950/5">
-                    <div className="flex justify-between text-[9px] text-cyan-500/80 mb-2 uppercase font-bold tracking-[0.1em]">
-                        <span>Cloud Bandwidth</span>
-                        <span>72%</span>
-                    </div>
-                    <div className="h-1 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/50">
-                        <div className="h-full bg-cyan-400 w-[72%] shadow-[0_0_10px_rgba(0,243,255,0.8)]"></div>
-                    </div>
-                    <p className="text-[9px] text-gray-600 mt-3 font-mono">32.4 GB / 50 GB ALLOCATED</p>
+            {/* Storage Area */}
+            <div className="px-6 mt-auto mb-4">
+                <div className="flex items-center gap-2 text-gray-400 mb-3 hover:text-cyan-400 cursor-pointer transition-colors">
+                    <span>☁️</span> <span className="text-sm font-medium">Storage Allocation</span>
                 </div>
+                <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30">
+                    <div className="h-full bg-cyan-500 w-[72%] shadow-[0_0_10px_rgba(0,243,255,0.8)]"></div>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2 font-sans tracking-wide">32.4 GB / 50 GB used</p>
+                <button className="mt-4 w-full py-2 border border-cyan-800 rounded-full text-xs text-cyan-400 font-medium hover:bg-cyan-900/30 transition-colors">
+                    Expand Core Storage
+                </button>
             </div>
         </aside>
     );

@@ -1,78 +1,137 @@
 import React, { useState } from 'react';
 
 const FileList = () => {
-    const [view, setView] = useState('grid');
+    const [view, setView] = useState('list');
 
     // Realistic Data
     const files = [
-        { id: 1, name: 'kp_core_engine_v4.2.bin', size: '1.4 GB', type: 'SYSTEM', modified: 'Oct 24, 2025' },
-        { id: 2, name: 'encryption_keys_prod.vault', size: '12 KB', type: 'ENCRYPTED', modified: '2 hours ago' },
-        { id: 3, name: 'security_protocol_delta.pdf', size: '4.8 MB', type: 'DOCUMENT', modified: '5 hours ago' },
-        { id: 4, name: 'kphub_resource_assets.pkg', size: '842 MB', type: 'ARCHIVE', modified: 'Oct 20, 2025' },
-        { id: 5, name: 'firewall_logs_node_01.txt', size: '64 MB', type: 'LOG', modified: 'Oct 18, 2025' },
-        { id: 6, name: 'interface_mockup_final.psd', size: '156 MB', type: 'DESIGN', modified: 'Oct 15, 2025' },
-        { id: 7, name: 'grid_automation_script.sh', size: '15 KB', type: 'SCRIPT', modified: 'Oct 12, 2025' },
-        { id: 8, name: 'quantum_database_export.sql', size: '2.1 GB', type: 'SYSTEM', modified: 'Oct 10, 2025' },
+        { id: 1, name: 'kp_core_engine_v4.2.bin', size: '1.4 GB', type: 'SYSTEM', modified: 'Oct 24, 2025', owner: 'me' },
+        { id: 2, name: 'encryption_keys_prod.vault', size: '12 KB', type: 'ENCRYPTED', modified: '2 hours ago', owner: 'me' },
+        { id: 3, name: 'security_protocol_delta.pdf', size: '4.8 MB', type: 'DOCUMENT', modified: '5 hours ago', owner: 'me' },
+        { id: 4, name: 'kphub_resource_assets.pkg', size: '842 MB', type: 'ARCHIVE', modified: 'Oct 20, 2025', owner: 'System' },
+        { id: 5, name: 'firewall_logs_node_01.txt', size: '64 MB', type: 'LOG', modified: 'Oct 18, 2025', owner: 'Network' },
+        { id: 6, name: 'interface_mockup_final.psd', size: '156 MB', type: 'DESIGN', modified: 'Oct 15, 2025', owner: 'me' },
+        { id: 7, name: 'grid_automation_script.sh', size: '15 KB', type: 'SCRIPT', modified: 'Oct 12, 2025', owner: 'System' },
+        { id: 8, name: 'quantum_database_export.sql', size: '2.1 GB', type: 'SYSTEM', modified: 'Oct 10, 2025', owner: 'me' },
     ];
 
+    const getIcon = (type) => {
+        switch (type) {
+            case 'SYSTEM': return '⚙️';
+            case 'ENCRYPTED': return '🔐';
+            case 'DOCUMENT': return '📋';
+            case 'ARCHIVE': return '📦';
+            case 'LOG': return '📝';
+            case 'DESIGN': return '🎨';
+            default: return '📜';
+        }
+    }
+
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between border-b border-cyan-900/20 pb-4">
-                <h2 className="text-[10px] font-bold text-cyan-500/60 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span className="w-1 h-3 bg-cyan-500 rounded-full shadow-[0_0_8px_#00f3ff]"></span>
-                    Authorized File Access
-                </h2>
-                <div className="flex items-center gap-2 glass-panel p-1 rounded-lg border-cyan-500/10">
+        <div className="flex flex-col w-full h-full pb-20">
+            {/* Action Bar (View toggles) */}
+            <div className="flex items-center justify-between mb-2 px-2">
+                <div className="text-sm font-medium text-gray-400">Files</div>
+                <div className="flex items-center gap-1 bg-cyan-950/20 p-1 rounded-lg border border-cyan-900/30">
                     <button
                         onClick={() => setView('list')}
-                        className={`px-3 py-1 rounded text-[10px] font-bold transition-all tracking-widest ${view === 'list' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        className={`p-1.5 rounded-md transition-all ${view === 'list' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        title="List view"
                     >
-                        LIST
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
                     </button>
                     <button
                         onClick={() => setView('grid')}
-                        className={`px-3 py-1 rounded text-[10px] font-bold transition-all tracking-widest ${view === 'grid' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        className={`p-1.5 rounded-md transition-all ${view === 'grid' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        title="Grid view"
                     >
-                        GRID
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                     </button>
                 </div>
             </div>
 
-            <div className={view === 'grid' ? 'file-grid' : 'file-list'}>
-                {files.map((file) => (
-                    <div
-                        key={file.id}
-                        className={`glass-panel border-cyan-900/30 hover:border-cyan-500/50 transition-all cursor-pointer group relative overflow-hidden ${view === 'grid' ? 'p-6 flex flex-col items-center text-center gap-4' : 'px-4 py-3 flex items-center gap-4'
-                            }`}
-                    >
-                        {/* Background Glow on Hover */}
-                        <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-
-                        {/* Icon */}
-                        <div className={`rounded bg-cyan-500/5 border border-cyan-500/20 flex items-center justify-center shrink-0 shadow-inner ${view === 'grid' ? 'w-20 h-20 text-4xl' : 'w-10 h-10 text-xl'
-                            }`}>
-                            {file.type === 'SYSTEM' ? '⚙️' : file.type === 'ENCRYPTED' ? '🔐' : file.type === 'DOCUMENT' ? '📋' : file.type === 'ARCHIVE' ? '📦' : file.type === 'LOG' ? '📝' : file.type === 'DESIGN' ? '🎨' : '📜'}
-                        </div>
-
-                        <div className={`flex-1 min-w-0 z-10 ${view === 'grid' ? 'w-full' : ''}`}>
-                            <div className="text-xs font-medium text-gray-200 truncate group-hover:text-cyan-400 transition-colors tracking-tight">
-                                {file.name}
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[9px] text-cyan-500 font-bold uppercase tracking-tighter bg-cyan-500/10 px-1.5 rounded border border-cyan-500/20">{file.type}</span>
-                                {view === 'list' && <span className="text-[9px] text-gray-500 font-mono">{file.size}</span>}
-                                {view === 'list' && <span className="text-[9px] text-gray-600 ml-auto uppercase">{file.modified}</span>}
-                                {view === 'grid' && <span className="text-[9px] text-gray-500 block mt-1">{file.size} • {file.modified}</span>}
-                            </div>
-                        </div>
-
-                        <button className={`z-10 opacity-0 group-hover:opacity-100 transition-all text-[9px] font-bold text-cyan-400 border border-cyan-500/40 px-3 py-1.5 rounded whitespace-nowrap hover:bg-cyan-500/20 uppercase tracking-widest ${view === 'grid' ? 'w-full mt-2' : ''
-                            }`}>
-                            Transmit Link
-                        </button>
+            {view === 'list' ? (
+                /* List View - Google Drive Table Style */
+                <div className="w-full text-sm">
+                    {/* Table Header */}
+                    <div className="flex items-center px-4 py-3 border-b border-cyan-900/40 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        <div className="flex-[3] min-w-0 pr-4">Name</div>
+                        <div className="flex-1 hidden md:block px-2">Owner</div>
+                        <div className="flex-1 hidden sm:block px-2">Last modified</div>
+                        <div className="flex-1 px-2">File size</div>
+                        <div className="w-12"></div>
                     </div>
-                ))}
-            </div>
+
+                    {/* Table Rows */}
+                    <div className="flex flex-col mt-1">
+                        {files.map((file) => (
+                            <div
+                                key={file.id}
+                                className="group flex items-center px-4 py-3 hover:bg-cyan-500/10 border-b border-cyan-900/10 cursor-pointer rounded-lg transition-colors"
+                            >
+                                {/* Name & Icon */}
+                                <div className="flex-[3] min-w-0 pr-4 flex items-center gap-4">
+                                    <div className="text-xl opacity-80">{getIcon(file.type)}</div>
+                                    <span className="font-medium text-gray-200 truncate group-hover:text-cyan-400 transition-colors">
+                                        {file.name}
+                                    </span>
+                                </div>
+
+                                {/* Owner */}
+                                <div className="flex-1 hidden md:block px-2 text-gray-400">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-cyan-900 flex items-center justify-center text-[10px] font-bold text-cyan-400">
+                                            {file.owner === 'me' ? 'KP' : file.owner[0]}
+                                        </div>
+                                        {file.owner}
+                                    </div>
+                                </div>
+
+                                {/* Modified Date */}
+                                <div className="flex-1 hidden sm:block px-2 text-gray-400">
+                                    {file.modified}
+                                </div>
+
+                                {/* Size */}
+                                <div className="flex-1 px-2 text-gray-400">
+                                    {file.size}
+                                </div>
+
+                                {/* Actions (More options) */}
+                                <div className="w-12 flex justify-end">
+                                    <button className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-cyan-500/20 text-cyan-400 transition-all">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                /* Grid View */
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-2">
+                    {files.map((file) => (
+                        <div
+                            key={file.id}
+                            className="group flex flex-col glass-panel bg-cyan-950/20 border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-cyan-900/30 rounded-2xl cursor-pointer transition-all overflow-hidden"
+                        >
+                            <div className="h-32 flex items-center justify-center bg-black/40 border-b border-cyan-900/20 relative">
+                                <div className="text-5xl opacity-80 group-hover:scale-110 transition-transform duration-300">
+                                    {getIcon(file.type)}
+                                </div>
+                            </div>
+                            <div className="p-4 flex items-center gap-3">
+                                <div className="text-lg opacity-80">{getIcon(file.type)}</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium text-gray-200 truncate group-hover:text-cyan-400 transition-colors">
+                                        {file.name}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

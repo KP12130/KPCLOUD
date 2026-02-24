@@ -1,55 +1,35 @@
 import React from 'react';
+import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import SearchBar from './components/SearchBar';
 import FileList from './components/FileList';
-import Uploader from './components/Uploader';
-import Footer from './components/Footer';
 
 function App() {
   return (
-    <div className="dashboard-container relative overflow-hidden bg-[#030303]">
+    <div className="h-screen w-screen flex flex-col bg-[#030303] text-white font-mono overflow-hidden relative">
+      {/* Background Visuals */}
       <div className="bg-grid"></div>
       <div className="bg-vignette"></div>
 
-      {/* Sidebar - Desktop */}
-      <Sidebar />
+      {/* Top Header */}
+      <Header />
 
-      {/* Main Content Area */}
-      <div className="main-content">
-        <SearchBar />
+      {/* Main Layout Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar */}
+        <Sidebar />
 
-        <main className="content-scroll">
-          {/* Quick Upload Action */}
-          <div className="mb-10">
-            <Uploader />
+        {/* Central Drive Panel (Rounded Rectangle) */}
+        <main className="flex-1 m-4 ml-0 bg-[#0a0a0a]/90 backdrop-blur-xl border border-cyan-900/30 rounded-3xl overflow-hidden flex flex-col relative shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+
+          <div className="content-scroll p-6 lg:p-8">
+            <h1 className="text-2xl text-gray-100 font-normal tracking-wide mb-8 pl-2">Welcome to Grid Access</h1>
+
+            <FileList />
           </div>
 
-          {/* Files Dashboard Area */}
-          <FileList />
         </main>
-
-        <Footer />
       </div>
 
-      {/* Grid Utility styles for Tailwind-like behavior in dashboard */}
-      <style>{`
-        .bg-vignette {
-          background: radial-gradient(circle at center, transparent 0%, rgba(3,3,3,0.95) 100%);
-        }
-        .content-scroll::-webkit-scrollbar {
-          width: 6px;
-        }
-        .content-scroll::-webkit-scrollbar-track {
-          background: rgba(0,243,255,0.02);
-        }
-        .content-scroll::-webkit-scrollbar-thumb {
-          background: rgba(0,243,255,0.1);
-          border-radius: 10px;
-        }
-        .content-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(0,243,255,0.2);
-        }
-      `}</style>
     </div>
   );
 }
