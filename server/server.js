@@ -27,9 +27,10 @@ app.get('/api/health', (req, res) => {
 });
 
 const { s3 } = require('./config/r2');
-const { ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
+const JSZip = require('jszip');
 const upload = multer({ storage: multer.memoryStorage() });
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'kp-cloud-storage';
@@ -139,6 +140,81 @@ app.get('/api/download/:filename(*)', async (req, res) => {
     }
 });
 
+// API: Download Entire Folder as ZIP
+app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
+    try {
+        if (!s3) {
+            return res.status(500).json({ error: 'R2 Client not initialized' });
+        }
+
+        const prefix = req.params.folderPath;
+        if (!prefix.endsWith('/')) {
+            return res.status(400).json({ error: 'FolderPath must end with a slash' });
+        }
+
+        const zip = new JSZip();
+        let isTruncated = true;
+        let continuationToken = undefined;
+        let fileCount = 0;
+
+        // Fetch all objects in the folder
+        while (isTruncated) {
+            const listCommand = new ListObjectsV2Command({
+                Bucket: BUCKET_NAME,
+                Prefix: prefix,
+                ContinuationToken: continuationToken
+            });
+            const response = await s3.send(listCommand);
+
+            if (response.Contents) {
+                for (const item of response.Contents) {
+                    if (item.Key === prefix) continue; // Skip the folder itself if it exists as an object
+
+                    const getCommand = new GetObjectCommand({
+                        Bucket: BUCKET_NAME,
+                        Key: item.Key
+                    });
+
+                    const fileResponse = await s3.send(getCommand);
+                    const streamToBuffer = async (stream) => {
+                        return new Promise((resolve, reject) => {
+                            const chunks = [];
+                            stream.on('data', chunk => chunks.push(chunk));
+                            stream.once('end', () => resolve(Buffer.concat(chunks)));
+                            stream.once('error', reject);
+                        });
+                    };
+
+                    const fileBuffer = await streamToBuffer(fileResponse.Body);
+                    // Determine relative path inside the zip
+                    const relativePath = item.Key.substring(prefix.length);
+                    zip.file(relativePath, fileBuffer);
+                    fileCount++;
+                }
+            }
+            isTruncated = response.IsTruncated;
+            continuationToken = response.NextContinuationToken;
+        }
+
+        if (fileCount === 0) {
+            return res.status(404).json({ error: 'Folder is empty or not found' });
+        }
+
+        // Generate zip buffer
+        const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+
+        // Return zip as attachment
+        const folderName = prefix.split('/').filter(Boolean).pop() || 'folder';
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"`);
+        res.send(zipBuffer);
+
+    } catch (error) {
+        console.error("Folder Zip Error:", error);
+        res.status(500).json({ error: 'Failed to generate folder zip' });
+    }
+});
+
 // API: Generate Pre-signed URL for direct R2 Upload
 app.post('/api/upload/presign', async (req, res) => {
     try {
@@ -165,21 +241,57 @@ app.post('/api/upload/presign', async (req, res) => {
     }
 });
 
-// API: Delete File from R2
+// API: Delete File or Folder from R2
 app.delete('/api/delete/:filename(*)', async (req, res) => {
     try {
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
-        const command = new DeleteObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: req.params.filename,
-        });
-        await s3.send(command);
-        res.json({ message: 'File deleted' });
+
+        const target = req.params.filename;
+        const isFolder = target.endsWith('/');
+
+        if (isFolder) {
+            // Recursive Folder Deletion
+            let isTruncated = true;
+            let continuationToken = undefined;
+
+            while (isTruncated) {
+                const listCommand = new ListObjectsV2Command({
+                    Bucket: BUCKET_NAME,
+                    Prefix: target,
+                    ContinuationToken: continuationToken
+                });
+
+                const response = await s3.send(listCommand);
+
+                if (response.Contents && response.Contents.length > 0) {
+                    const deleteCommand = new DeleteObjectsCommand({
+                        Bucket: BUCKET_NAME,
+                        Delete: {
+                            Objects: response.Contents.map(item => ({ Key: item.Key })),
+                            Quiet: true
+                        }
+                    });
+                    await s3.send(deleteCommand);
+                }
+
+                isTruncated = response.IsTruncated;
+                continuationToken = response.NextContinuationToken;
+            }
+            res.json({ message: 'Folder and contents deleted successfully' });
+        } else {
+            // Single File Deletion
+            const command = new DeleteObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: target,
+            });
+            await s3.send(command);
+            res.json({ message: 'File deleted successfully' });
+        }
     } catch (error) {
         console.error("Delete Error:", error);
-        res.status(500).json({ error: 'Failed to delete file' });
+        res.status(500).json({ error: 'Failed to delete item(s)' });
     }
 });
 

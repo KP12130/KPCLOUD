@@ -71,8 +71,13 @@ const FileList = ({ currentMenu = 'My Data' }) => {
     };
 
     const handleDownload = async (item) => {
-        if (item.isFolder) return;
         try {
+            if (item.isFolder) {
+                // Trigger native browser download behavior for the zip endpoint
+                window.location.href = `/api/download-folder/${encodeURIComponent(item.fullPath)}`;
+                return;
+            }
+
             const response = await fetch(`/api/download/${encodeURIComponent(item.fullPath)}`);
             const data = await response.json();
             if (data.url) {
@@ -89,12 +94,8 @@ const FileList = ({ currentMenu = 'My Data' }) => {
     };
 
     const handleDelete = async (item) => {
-        if (item.isFolder) {
-            alert("Deleting an entire folder natively is not supported in this demo MVP. You must delete the files inside.");
-            return;
-        }
-
-        if (!window.confirm(`Are you sure you want to delete ${item.displayName || item.name}?`)) return;
+        const itemType = item.isFolder ? "folder and all its contents" : "file";
+        if (!window.confirm(`Are you sure you want to permanently delete this ${itemType}: ${item.displayName || item.name}?`)) return;
 
         try {
             const response = await fetch(`/api/delete/${encodeURIComponent(item.fullPath)}`, { method: 'DELETE' });
@@ -375,21 +376,19 @@ const FileList = ({ currentMenu = 'My Data' }) => {
                         <span className="text-[10px] text-gray-500 uppercase">{contextMenu.item.type}</span>
                     </div>
 
+                    <button
+                        onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                        className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
+                    >
+                        <span>📥</span> Download {contextMenu.item.isFolder && "as ZIP"}
+                    </button>
                     {!contextMenu.item.isFolder && (
-                        <>
-                            <button
-                                onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                                className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
-                            >
-                                <span>📥</span> Download
-                            </button>
-                            <button
-                                onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                                className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
-                            >
-                                <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
-                            </button>
-                        </>
+                        <button
+                            onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                            className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
+                        >
+                            <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
+                        </button>
                     )}
                     <button
                         onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
