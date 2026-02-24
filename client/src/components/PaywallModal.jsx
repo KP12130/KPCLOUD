@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1 }) => {
+const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyConfig }) => {
     const [activeTab, setActiveTab] = useState('converter'); // 'store' or 'converter'
     const [selectedPack, setSelectedPack] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -28,14 +28,14 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1 }) => {
     const handlePurchase = () => {
         if (!selectedPack) return;
         setIsProcessing(true);
+        onTopUp(selectedPack.kpc + (selectedPack.bonus || 0));
         setTimeout(() => {
-            onTopUp(selectedPack.kpc + (selectedPack.bonus || 0));
             setIsProcessing(false);
             setActiveTab('converter');
-        }, 1500);
+        }, 1000);
     };
 
-    const handleApplyConfig = () => {
+    const handleApplyConfig = async () => {
         const cost = calculateMonthlyCost();
         if (kpcBalance < cost) {
             alert("Inszignifikáns KPC egyenleg! Kérlek töltsd fel a számládat.");
@@ -43,11 +43,9 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1 }) => {
             return;
         }
         setIsProcessing(true);
-        setTimeout(() => {
-            setIsProcessing(false);
-            alert(`Konfiguráció alkalmazva! Új kvóta: ${targetQuota} GB.`);
-            onClose();
-        }, 1200);
+        await onApplyConfig(targetQuota, cost);
+        setIsProcessing(false);
+        onClose();
     };
 
     return (

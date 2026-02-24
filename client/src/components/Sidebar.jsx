@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance }) => {
+const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthlyQuota }) => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
@@ -199,7 +199,7 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance }) => {
                             ></div>
                         </div>
                         <p className={`text-[11px] mt-2 font-sans tracking-wide transition-colors ${storage.percentage > 90 ? 'text-rose-400 font-bold' : 'text-gray-500'}`}>
-                            {storage.usedGB} GB used (Free: 1GB)
+                            {storage.usedGB} GB used of {monthlyQuota || 1} GB
                         </p>
                     </>
                 ) : (
