@@ -79,7 +79,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1 }) => {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-black/40 rounded-full border border-cyan-500/20">
                             <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">Balance:</span>
-                            <span className="text-sm font-bold text-emerald-400 font-mono">💎 {kpcBalance.toLocaleString()}</span>
+                            <span className="text-sm font-bold text-emerald-400 font-mono">💎 {(kpcBalance || 0).toLocaleString()}</span>
                         </div>
                         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -184,7 +184,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1 }) => {
                             <div className="space-y-4 mb-8">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-400">Current Balance</span>
-                                    <span className="text-white font-mono">💎 {kpcBalance.toLocaleString()}</span>
+                                    <span className="text-white font-mono">💎 {(kpcBalance || 0).toLocaleString()}</span>
                                 </div>
                                 {activeTab === 'converter' ? (
                                     <>

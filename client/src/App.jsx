@@ -48,6 +48,7 @@ function App() {
       {/* KPC Store Modal */}
       {isPaywallOpen && (
         <PaywallModal
+          kpcBalance={kpcBalance}
           onClose={() => setIsPaywallOpen(false)}
           onTopUp={(amount) => {
             setKpcBalance(prev => prev + amount);
