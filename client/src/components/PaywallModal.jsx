@@ -15,8 +15,11 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
 
     const packs = [
         { id: 'vandor', name: 'Vándor Pack', price: '$1.99', desc: 'Alkalmi mentéshez.', kpc: 2000, color: 'text-gray-300' },
-        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: 'Átlagos felhasználóknak.', kpc: 5000, bonus: 500, color: 'text-cyan-400', popular: true },
-        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: 'Hardcore júzereknek.', kpc: 10000, bonus: 2000, color: 'text-amber-400' }
+        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: 'Átlagos felhasználóknak.', kpc: 5000, bonus: 500, color: 'text-cyan-400' },
+        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: 'Hardcore júzereknek.', kpc: 10000, bonus: 2000, color: 'text-amber-400', popular: true },
+        { id: 'csaszar', name: 'Császár Pack', price: '$24.99', desc: 'Birodalmi léptékhez.', kpc: 25000, bonus: 7500, color: 'text-orange-400' },
+        { id: 'isten', name: 'Isten Pack', price: '$49.99', desc: 'Mindenek felett álló.', kpc: 50000, bonus: 20000, color: 'text-purple-400' },
+        { id: 'vegtelen', name: 'Végtelen Pack', price: '$99.99', desc: 'A határok megszűnnek.', kpc: 100000, bonus: 50000, color: 'text-rose-500' }
     ];
 
     const calculateMonthlyCost = () => {
@@ -134,17 +137,18 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                     <input
                                         type="range"
                                         min="0"
-                                        max="500"
+                                        max="1024"
                                         step="1"
                                         value={extraQuota}
                                         onChange={(e) => setExtraQuota(parseInt(e.target.value))}
                                         className="w-full h-2 bg-cyan-950 rounded-lg appearance-none cursor-pointer accent-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.2)]"
                                     />
                                     <div className="flex justify-between mt-4 text-[10px] font-bold text-gray-600 uppercase tracking-tighter">
-                                        <span>1 GB (Free)</span>
-                                        <span>100 GB</span>
+                                        <span>+0 GB</span>
                                         <span>250 GB</span>
                                         <span>500 GB (Titan)</span>
+                                        <span>750 GB</span>
+                                        <span>1024 GB (1 TB)</span>
                                     </div>
                                 </div>
 
