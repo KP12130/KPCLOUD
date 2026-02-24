@@ -127,6 +127,7 @@ app.get('/api/download/:filename', async (req, res) => {
         const command = new GetObjectCommand({
             Bucket: BUCKET_NAME,
             Key: req.params.filename,
+            ResponseContentDisposition: `attachment; filename="${req.params.filename}"`
         });
 
         const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
