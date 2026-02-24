@@ -1,6 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Sidebar = () => {
+    const [storage, setStorage] = useState(null);
+
+    useEffect(() => {
+        const fetchStorage = async () => {
+            try {
+                const response = await fetch('/api/storage');
+                const data = await response.json();
+                setStorage(data);
+            } catch (error) {
+                console.error("Error fetching storage:", error);
+            }
+        };
+
+        fetchStorage();
+    }, []);
+
     const menuItems = [
         { name: 'My Data', icon: '☁️', active: true },
         { name: 'Recent Activity', icon: '🕒', active: false },
@@ -38,10 +54,23 @@ const Sidebar = () => {
                 <div className="flex items-center gap-2 text-gray-400 mb-3 hover:text-cyan-400 cursor-pointer transition-colors">
                     <span>☁️</span> <span className="text-sm font-medium">Storage Allocation</span>
                 </div>
-                <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30">
-                    <div className="h-full bg-cyan-500 w-[72%] shadow-[0_0_10px_rgba(0,243,255,0.8)]"></div>
-                </div>
-                <p className="text-[11px] text-gray-500 mt-2 font-sans tracking-wide">32.4 GB / 50 GB used</p>
+
+                {storage ? (
+                    <>
+                        <div className="h-1.5 bg-cyan-950 rounded-full overflow-hidden border border-cyan-900/30 relative">
+                            <div
+                                className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.8)] transition-all duration-1000"
+                                style={{ width: `${storage.percentage}%` }}
+                            ></div>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-2 font-sans tracking-wide">
+                            {storage.usedGB} GB / {storage.totalGB} GB used ({storage.tier})
+                        </p>
+                    </>
+                ) : (
+                    <div className="animate-pulse h-1.5 bg-cyan-900/50 rounded-full w-full"></div>
+                )}
+
                 <button className="mt-4 w-full py-2 border border-cyan-800 rounded-full text-xs text-cyan-400 font-medium hover:bg-cyan-900/30 transition-colors">
                     Expand Core Storage
                 </button>

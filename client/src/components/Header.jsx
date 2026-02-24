@@ -8,7 +8,7 @@ const Header = () => {
                 <div className="w-8 h-8 rounded-lg bg-cyan-900/40 border border-cyan-500/30 flex items-center justify-center shadow-[0_0_10px_rgba(0,243,255,0.2)]">
                     <div className="w-4 h-4 rounded-sm bg-cyan-400 animate-pulse"></div>
                 </div>
-                <span className="text-xl font-bold tracking-tight text-white">Drive<span className="text-cyan-500">.kp</span></span>
+                <span className="text-xl font-bold tracking-tight text-white">KP<span className="text-cyan-500">Cloud</span></span>
             </div>
 
             {/* Central Search Bar */}

@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const FileList = () => {
     const [view, setView] = useState('list');
+    const [files, setFiles] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    // Realistic Data
-    const files = [
-        { id: 1, name: 'kp_core_engine_v4.2.bin', size: '1.4 GB', type: 'SYSTEM', modified: 'Oct 24, 2025', owner: 'me' },
-        { id: 2, name: 'encryption_keys_prod.vault', size: '12 KB', type: 'ENCRYPTED', modified: '2 hours ago', owner: 'me' },
-        { id: 3, name: 'security_protocol_delta.pdf', size: '4.8 MB', type: 'DOCUMENT', modified: '5 hours ago', owner: 'me' },
-        { id: 4, name: 'kphub_resource_assets.pkg', size: '842 MB', type: 'ARCHIVE', modified: 'Oct 20, 2025', owner: 'System' },
-        { id: 5, name: 'firewall_logs_node_01.txt', size: '64 MB', type: 'LOG', modified: 'Oct 18, 2025', owner: 'Network' },
-        { id: 6, name: 'interface_mockup_final.psd', size: '156 MB', type: 'DESIGN', modified: 'Oct 15, 2025', owner: 'me' },
-        { id: 7, name: 'grid_automation_script.sh', size: '15 KB', type: 'SCRIPT', modified: 'Oct 12, 2025', owner: 'System' },
-        { id: 8, name: 'quantum_database_export.sql', size: '2.1 GB', type: 'SYSTEM', modified: 'Oct 10, 2025', owner: 'me' },
-    ];
+    useEffect(() => {
+        const fetchFiles = async () => {
+            try {
+                // Fetch from the Express backend
+                const response = await fetch('/api/files');
+                const data = await response.json();
+                setFiles(data);
+            } catch (error) {
+                console.error("Error fetching files from server:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFiles();
+    }, []);
 
     const getIcon = (type) => {
         switch (type) {
@@ -50,7 +57,14 @@ const FileList = () => {
                 </div>
             </div>
 
-            {view === 'list' ? (
+            {loading ? (
+                <div className="flex items-center justify-center p-12">
+                    <div className="animate-pulse flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 rounded-full border-4 border border-cyan-500/30 border-t-cyan-400 animate-spin"></div>
+                        <span className="text-cyan-400 text-sm font-bold tracking-[0.2em] uppercase">Connecting to Grid...</span>
+                    </div>
+                </div>
+            ) : view === 'list' ? (
                 /* List View - Google Drive Table Style */
                 <div className="w-full text-sm">
                     {/* Table Header */}
