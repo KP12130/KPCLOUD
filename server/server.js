@@ -299,7 +299,7 @@ app.delete('/api/delete/:filename(*)', async (req, res) => {
 app.get('/api/storage', async (req, res) => {
     try {
         if (!s3) {
-            return res.json({ tier: 'Operative', usedGB: 0, totalGB: 50, percentage: 0 });
+            return res.json({ tier: 'Operative', usedGB: 0, totalGB: 50, percentage: 0, rawTotalBytes: 0 });
         }
 
         // Note: For a very large bucket, ListObjectsV2 might be too slow.
@@ -317,18 +317,19 @@ app.get('/api/storage', async (req, res) => {
         });
 
         const usedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(3);
-        const totalGB = 1;
-        const percentage = ((usedGB / totalGB) * 100).toFixed(2);
+        const totalGB = 1; // 1GB quota
+        const percentage = Math.min(((usedGB / totalGB) * 100), 100).toFixed(1);
 
         res.json({
             tier: 'Operative',
-            usedGB: parseFloat(usedGB),
-            totalGB: totalGB,
-            percentage: parseFloat(percentage)
+            usedGB,
+            totalGB,
+            percentage,
+            rawTotalBytes: totalBytes
         });
     } catch (error) {
         console.error("Storage Error:", error);
-        res.json({ tier: 'Operative', usedGB: 0, totalGB: 50, percentage: 0 });
+        res.status(500).json({ error: 'Failed to get storage info' });
     }
 });
 

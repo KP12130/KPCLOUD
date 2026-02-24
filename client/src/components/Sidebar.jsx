@@ -199,6 +199,17 @@ const Sidebar = ({ currentMenu, setCurrentMenu }) => {
                 <button className="mt-4 w-full py-2 border border-cyan-800 rounded-full text-xs text-cyan-400 font-medium hover:bg-cyan-900/30 transition-colors">
                     Expand Core Storage
                 </button>
+
+                {storage && (
+                    <div className="mt-6 flex flex-col items-center justify-center opacity-40 hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest leading-none mb-1">R2 Bucket Footprint</span>
+                        <span className="text-xs text-cyan-300 font-mono">
+                            {storage.rawTotalBytes === 0 ? '0 B' :
+                                (storage.rawTotalBytes / (1024 * 1024)).toFixed(2) + ' MB'}
+                            <span className="text-[9px] text-gray-500 ml-1">({storage.rawTotalBytes.toLocaleString()} B)</span>
+                        </span>
+                    </div>
+                )}
             </div>
         </aside>
     );
