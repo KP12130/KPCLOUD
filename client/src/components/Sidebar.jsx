@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const Sidebar = ({ currentMenu, setCurrentMenu }) => {
+const Sidebar = ({ currentMenu, setCurrentMenu, onOpenPaywall }) => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
@@ -196,7 +196,10 @@ const Sidebar = ({ currentMenu, setCurrentMenu }) => {
                     <div className="animate-pulse h-1.5 bg-cyan-900/50 rounded-full w-full"></div>
                 )}
 
-                <button className="mt-4 w-full py-2 border border-cyan-800 rounded-full text-xs text-cyan-400 font-medium hover:bg-cyan-900/30 transition-colors">
+                <button
+                    onClick={onOpenPaywall}
+                    className="mt-4 w-full py-2 border border-cyan-800 rounded-full text-xs text-cyan-400 font-medium hover:bg-cyan-900/30 transition-colors"
+                >
                     Expand Core Storage
                 </button>
 
