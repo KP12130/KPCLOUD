@@ -136,48 +136,62 @@ const processBilling = async (uid) => {
     const lastBilling = data.lastBillingDate || now;
     const msSinceBilling = now - lastBilling;
 
-    // We process billing daily (86400000 ms)
-    if (msSinceBilling >= 24 * 60 * 60 * 1000 || !data.lastBillingDate) {
-        // Predictable Billing: Cost is based on Quota, not actual used bytes.
-        // First 1 GB (Basic) is FREE.
-        const monthlyQuota = data.monthlyQuota || 1;
-        const paidGB = Math.max(0, monthlyQuota - 1);
-        const dailyCost = (paidGB * 25) / 30;
-        const newBalance = (data.kpcBalance || 0) - dailyCost;
+    // --- 30-DAY SUBSCRIPTION LOGIC ---
+    const monthlyQuota = data.monthlyQuota || 1;
+    const paidGB = Math.max(0, monthlyQuota - 1);
+    const monthlyCost = paidGB * 25;
 
-        const updates = {
-            kpcBalance: newBalance,
-            lastBillingDate: now
-        };
+    // 1. Anniversary Check (Run logic if 30 days passed or no billing history)
+    if (msSinceBilling >= 30 * 24 * 60 * 60 * 1000 || !data.lastBillingDate) {
+        if ((data.kpcBalance || 0) >= monthlyCost) {
+            // Renewal Success: Deduct and restart 30-day cycle
+            const updates = {
+                kpcBalance: (data.kpcBalance || 0) - monthlyCost,
+                lastBillingDate: now,
+                kpc_status: 'active',
+                suspension_start_date: admin.firestore.FieldValue.delete(),
+                auto_delete_date: admin.firestore.FieldValue.delete(),
+                email_sent_warning_1: admin.firestore.FieldValue.delete(),
+                email_sent_warning_final: admin.firestore.FieldValue.delete()
+            };
+            await userRef.update(updates);
+            console.log(`Subscription Renewed for ${uid} (-${monthlyCost} KPC)`);
+        } else if (data.kpc_status !== 'suspended' && data.kpc_status !== 'deleted') {
+            // Renewal Failure: Suspend Account
+            const updates = {
+                kpc_status: 'suspended',
+                suspension_start_date: now,
+                auto_delete_date: now + (15 * 24 * 60 * 60 * 1000)
+            };
+            await userRef.update(updates);
 
-        if (newBalance <= 0) {
-            if (data.kpc_status !== 'suspended' && data.kpc_status !== 'deleted') {
-                updates.kpc_status = 'suspended';
-                updates.suspension_start_date = now;
-                updates.auto_delete_date = now + (15 * 24 * 60 * 60 * 1000); // 15 Days
-
-                // Phase 1: Suspension Email
-                await sendEmail(data.email, "🛑 RENDSZERÜZENET: Fiókod zárolásra került!", `
-                    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ff4444; border-radius: 10px;">
-                        <h2 style="color: #cc0000;">Sajnáljuk, de elfogyott a KPC-d.</h2>
-                        <p>A fájljaidat még tároljuk, de nem férhetsz hozzájuk.</p>
-                        <p><strong>Hátralévő idő az adatmegsemmisítésig: 15 nap.</strong></p>
-                        <p>Kérlek töltsd fel az egyenlegedet a zárolás feloldásához!</p>
-                    </div>
-                `);
-            }
-        } else if (data.kpc_status === 'suspended' || data.kpc_status === 'deleted') {
-            updates.kpc_status = 'active';
-            updates.suspension_start_date = admin.firestore.FieldValue.delete();
-            updates.auto_delete_date = admin.firestore.FieldValue.delete();
-            updates.email_sent_warning_1 = admin.firestore.FieldValue.delete();
-            updates.email_sent_warning_final = admin.firestore.FieldValue.delete();
+            // Phase 1 Email
+            await sendEmail(data.email, "🛑 RENDSZERÜZENET: Fiókod zárolásra került!", `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ff4444; border-radius: 10px;">
+                    <h2 style="color: #cc0000;">Sikertelen megújítás: Elfogyott a KPC-d.</h2>
+                    <p>A havi tárhelydíjat nem tudtuk levonni, ezért fiókod zárolásra került.</p>
+                    <p><strong>Hátralévő idő az adatmegsemmisítésig: 15 nap.</strong></p>
+                    <p>Kérlek töltsd fel az egyenlegedet (min. ${monthlyCost} KPC) a zárolás feloldásához!</p>
+                </div>
+            `);
         }
-
+    }
+    // 2. Recovery Check (If suspended/deleted but user now has funds)
+    else if ((data.kpc_status === 'suspended' || data.kpc_status === 'deleted') && (data.kpcBalance || 0) >= monthlyCost) {
+        const updates = {
+            kpcBalance: (data.kpcBalance || 0) - monthlyCost,
+            lastBillingDate: now,
+            kpc_status: 'active',
+            suspension_start_date: admin.firestore.FieldValue.delete(),
+            auto_delete_date: admin.firestore.FieldValue.delete(),
+            email_sent_warning_1: admin.firestore.FieldValue.delete(),
+            email_sent_warning_final: admin.firestore.FieldValue.delete()
+        };
         await userRef.update(updates);
+        console.log(`User ${uid} recovered from suspension via top-up.`);
     }
 
-    // --- PHASED EMAIL NOTIFICATIONS ---
+    // --- PHASED EMAIL NOTIFICATIONS (Warnings) ---
     if (data.kpc_status === 'suspended' && data.suspension_start_date) {
         const daysSuspended = (now - data.suspension_start_date) / (1000 * 60 * 60 * 24);
 
@@ -205,11 +219,10 @@ const processBilling = async (uid) => {
         }
     }
 
-    // Auto-Purge Logic (Phase 4)
+    // --- AUTO-PURGE LOGIC (Phase 4) ---
     if (data.kpc_status === 'suspended' && data.auto_delete_date && now > data.auto_delete_date) {
         console.log(`PURGING USER DATA for ${uid} (Quota expired)`);
         try {
-            // List all objects for this user
             const listCommand = new ListObjectsV2Command({ Bucket: BUCKET_NAME, Prefix: `${uid}/` });
             const listRes = await s3.send(listCommand);
             const objects = listRes.Contents || [];
@@ -222,7 +235,6 @@ const processBilling = async (uid) => {
                 await s3.send(deleteCommand);
             }
 
-            // Phase 4: Purge Email
             await sendEmail(data.email, "🗑️ Adatok törölve.", `
                 <div style="font-family: sans-serif; padding: 20px;">
                     <h2>A türelmi idő lejárt, a tárhelyedet felszabadítottuk.</h2>
@@ -232,7 +244,7 @@ const processBilling = async (uid) => {
 
             await userRef.update({
                 kpc_status: 'deleted',
-                monthlyQuota: 1, // Reset to basic
+                monthlyQuota: 1,
                 kpcBalance: 0,
                 email_sent_warning_1: admin.firestore.FieldValue.delete(),
                 email_sent_warning_final: admin.firestore.FieldValue.delete()

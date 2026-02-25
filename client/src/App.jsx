@@ -114,7 +114,8 @@ function App() {
     const userRef = doc(db, 'users', user.uid);
     await setDoc(userRef, {
       kpcBalance: kpcBalance - cost,
-      monthlyQuota: newQuota
+      monthlyQuota: newQuota,
+      lastBillingDate: Date.now()
     }, { merge: true });
     alert(`Configuration applied! Storage updated to ${newQuota} GB.`);
   };
