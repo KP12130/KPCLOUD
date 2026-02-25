@@ -35,7 +35,7 @@ function App() {
           const userSnap = await getDoc(userRef);
           if (!userSnap.exists()) {
             await setDoc(userRef, {
-              kpcBalance: 500,
+              kpcBalance: 0,
               monthlyQuota: 1,
               email: currentUser.email,
               displayName: currentUser.displayName

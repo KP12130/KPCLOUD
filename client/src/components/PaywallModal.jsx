@@ -132,7 +132,21 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                     <div className="flex items-center justify-between mb-8">
                                         <div>
                                             <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Storage Expansion</div>
-                                            <div className="text-4xl font-black text-white">+{extraQuota} <span className="text-lg text-cyan-500">GB</span></div>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-4xl font-black text-white">+</span>
+                                                <input
+                                                    type="number"
+                                                    value={extraQuota}
+                                                    min="0"
+                                                    max="1024"
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value) || 0;
+                                                        setExtraQuota(Math.min(1024, Math.max(0, val)));
+                                                    }}
+                                                    className="w-24 bg-transparent text-4xl font-black text-white border-b-2 border-cyan-500/50 focus:border-cyan-400 outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                                <span className="text-lg text-cyan-500 font-bold">GB</span>
+                                            </div>
                                             <div className="text-[11px] text-gray-500 mt-1">New Total: <span className="text-white font-bold">{currentQuota + extraQuota} GB</span></div>
                                         </div>
                                         <div className="text-right">
