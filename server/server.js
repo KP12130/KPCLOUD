@@ -14,6 +14,29 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const admin = require('firebase-admin');
+const { Resend } = require('resend');
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// Helper: Send Email via Resend
+const sendEmail = async (to, subject, html) => {
+    if (!resend || !to) {
+        console.log(`[Email Mock] To: ${to}, Subject: ${subject}`);
+        return;
+    }
+    try {
+        await resend.emails.send({
+            from: 'KPCloud <noreply@resend.dev>', // Replace with verified domain in production
+            to: [to],
+            subject: subject,
+            html: html
+        });
+        console.log(`Email sent to ${to}: ${subject}`);
+    } catch (err) {
+        console.error("Email failed:", err);
+    }
+};
+
 if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert({
@@ -130,14 +153,54 @@ const processBilling = async (uid) => {
                 updates.kpc_status = 'suspended';
                 updates.suspension_start_date = now;
                 updates.auto_delete_date = now + (15 * 24 * 60 * 60 * 1000); // 15 Days
+
+                // Phase 1: Suspension Email
+                await sendEmail(data.email, "🛑 RENDSZERÜZENET: Fiókod zárolásra került!", `
+                    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ff4444; border-radius: 10px;">
+                        <h2 style="color: #cc0000;">Sajnáljuk, de elfogyott a KPC-d.</h2>
+                        <p>A fájljaidat még tároljuk, de nem férhetsz hozzájuk.</p>
+                        <p><strong>Hátralévő idő az adatmegsemmisítésig: 15 nap.</strong></p>
+                        <p>Kérlek töltsd fel az egyenlegedet a zárolás feloldásához!</p>
+                    </div>
+                `);
             }
         } else if (data.kpc_status === 'suspended' || data.kpc_status === 'deleted') {
             updates.kpc_status = 'active';
             updates.suspension_start_date = admin.firestore.FieldValue.delete();
             updates.auto_delete_date = admin.firestore.FieldValue.delete();
+            updates.email_sent_warning_1 = admin.firestore.FieldValue.delete();
+            updates.email_sent_warning_final = admin.firestore.FieldValue.delete();
         }
 
         await userRef.update(updates);
+    }
+
+    // --- PHASED EMAIL NOTIFICATIONS ---
+    if (data.kpc_status === 'suspended' && data.suspension_start_date) {
+        const daysSuspended = (now - data.suspension_start_date) / (1000 * 60 * 60 * 24);
+
+        // Phase 2: 7th Day Warning
+        if (daysSuspended >= 7 && !data.email_sent_warning_1) {
+            await sendEmail(data.email, "⚠️ FIGYELEM: Már csak 8 napod maradt!", `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ffaa00; border-radius: 10px;">
+                    <h2>A KPHub szerverei még őrzik az adataidat.</h2>
+                    <p>A türelmi idő felénél járunk. Ha nem töltöd fel az egyenleged, a fájljaid <strong>8 nap múlva</strong> véglegesen törlődnek.</p>
+                </div>
+            `);
+            await userRef.update({ email_sent_warning_1: true });
+        }
+
+        // Phase 3: 13th Day Final Warning
+        if (daysSuspended >= 13 && !data.email_sent_warning_final) {
+            await sendEmail(data.email, "🚨 UTOLSÓ ESÉLY: 48 óra a törlésig!", `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ff0000; border-radius: 10px; background: #fffcfc;">
+                    <h1 style="color: #ff0000;">48 ÓRA MARADT!</h1>
+                    <p>Ez az utolsó automatikus üzenetünk. Holnapután éjfélkor a rendszerünk elindítja az automatikus adatmegsemmisítést.</p>
+                    <p><strong>Ezt követően az adatok visszaállíthatatlanok lesznek.</strong></p>
+                </div>
+            `);
+            await userRef.update({ email_sent_warning_final: true });
+        }
     }
 
     // Auto-Purge Logic (Phase 4)
@@ -157,10 +220,20 @@ const processBilling = async (uid) => {
                 await s3.send(deleteCommand);
             }
 
+            // Phase 4: Purge Email
+            await sendEmail(data.email, "🗑️ Adatok törölve.", `
+                <div style="font-family: sans-serif; padding: 20px;">
+                    <h2>A türelmi idő lejárt, a tárhelyedet felszabadítottuk.</h2>
+                    <p>A fiókod megmaradt, így a jövőben bármikor újra használhatod a KPHub-ot, de a korábbi fájljaid már nem érhetőek el.</p>
+                </div>
+            `);
+
             await userRef.update({
                 kpc_status: 'deleted',
                 monthlyQuota: 1, // Reset to basic
-                kpcBalance: 0
+                kpcBalance: 0,
+                email_sent_warning_1: admin.firestore.FieldValue.delete(),
+                email_sent_warning_final: admin.firestore.FieldValue.delete()
             });
         } catch (purgeErr) {
             console.error("Purge failed for user:", uid, purgeErr);
