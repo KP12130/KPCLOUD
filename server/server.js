@@ -26,7 +26,7 @@ const sendEmail = async (to, subject, html) => {
     }
     try {
         await resend.emails.send({
-            from: 'KPCloud <noreply@resend.dev>', // Replace with verified domain in production
+            from: 'KPHub <noreply@kpcloud.online>', // Verified domain
             to: [to],
             subject: subject,
             html: html
