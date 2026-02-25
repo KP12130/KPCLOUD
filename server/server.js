@@ -59,6 +59,47 @@ const getFileType = (filename) => {
     return 'DOCUMENT';
 };
 
+// Helper: Get user storage stats (used bytes & quota)
+const getUserStorageStats = async (uid) => {
+    // 1. Get Quota from Firestore
+    let totalGB = 1;
+    try {
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+            totalGB = userDoc.data().monthlyQuota || 1;
+        }
+    } catch (err) {
+        console.error("Quota fetch error:", err);
+    }
+
+    // 2. Calculate Used Bytes from R2
+    let totalBytesUsed = 0;
+    if (s3) {
+        let isTruncated = true;
+        let continuationToken = undefined;
+        while (isTruncated) {
+            const command = new ListObjectsV2Command({
+                Bucket: BUCKET_NAME,
+                Prefix: `${uid}/`,
+                ContinuationToken: continuationToken
+            });
+            const response = await s3.send(command);
+            const items = response.Contents || [];
+            items.forEach(item => totalBytesUsed += item.Size);
+            isTruncated = response.IsTruncated;
+            continuationToken = response.NextContinuationToken;
+        }
+    }
+
+    const totalQuotaBytes = totalGB * 1024 * 1024 * 1024;
+    return {
+        usedBytes: totalBytesUsed,
+        quotaBytes: totalQuotaBytes,
+        quotaGB: totalGB,
+        remainingBytes: Math.max(0, totalQuotaBytes - totalBytesUsed)
+    };
+};
+
 // API: Get Files from R2
 app.get('/api/files', async (req, res) => {
     try {
@@ -114,6 +155,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
+
+        // --- Quota Check ---
+        const stats = await getUserStorageStats(uid);
+        if (req.file.size > stats.remainingBytes) {
+            return res.status(403).json({
+                error: 'Storage quota exceeded',
+                usedGB: (stats.usedBytes / (1024 ** 3)).toFixed(3),
+                totalGB: stats.quotaGB
+            });
+        }
+        // -------------------
+
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
@@ -242,11 +295,23 @@ app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
 // API: Generate Pre-signed URL for direct R2 Upload
 app.post('/api/upload/presign', async (req, res) => {
     try {
-        const { filename, contentType, uid } = req.body;
+        const { filename, contentType, uid, fileSize } = req.body;
         if (!filename) {
             return res.status(400).json({ error: 'Filename is required' });
         }
         if (!uid) return res.status(400).json({ error: 'UID is required' });
+        if (!fileSize) return res.status(400).json({ error: 'FileSize is required for quota check' });
+
+        // --- Quota Check ---
+        const stats = await getUserStorageStats(uid);
+        if (fileSize > stats.remainingBytes) {
+            return res.status(403).json({
+                error: 'Storage quota exceeded',
+                usedGB: (stats.usedBytes / (1024 ** 3)).toFixed(3),
+                totalGB: stats.quotaGB
+            });
+        }
+        // -------------------
 
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
@@ -330,45 +395,18 @@ app.delete('/api/delete/:filename(*)', async (req, res) => {
 app.get('/api/storage', async (req, res) => {
     try {
         const uid = req.query.uid;
-        let totalGB = 1; // Default fallback
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
 
-        if (uid) {
-            try {
-                const userDoc = await db.collection('users').doc(uid).get();
-                if (userDoc.exists) {
-                    totalGB = userDoc.data().monthlyQuota || 1;
-                }
-            } catch (fsErr) {
-                console.error("Firestore Quota Fetch Error:", fsErr);
-            }
-        }
-
-        if (!s3) {
-            return res.json({ tier: 'Operative', usedGB: 0, totalGB, percentage: 0, rawTotalBytes: 0 });
-        }
-
-        const command = new ListObjectsV2Command({
-            Bucket: BUCKET_NAME,
-            Prefix: uid ? `${uid}/` : ''
-        });
-
-        const response = await s3.send(command);
-        const items = response.Contents || [];
-
-        let totalBytes = 0;
-        items.forEach(item => {
-            totalBytes += item.Size;
-        });
-
-        const usedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(3);
-        const percentage = Math.min(((usedGB / totalGB) * 100), 100).toFixed(1);
+        const stats = await getUserStorageStats(uid);
+        const usedGB = (stats.usedBytes / (1024 * 1024 * 1024)).toFixed(3);
+        const percentage = Math.min(((usedGB / stats.quotaGB) * 100), 100).toFixed(1);
 
         res.json({
             tier: 'Operative',
             usedGB,
-            totalGB,
+            totalGB: stats.quotaGB,
             percentage,
-            rawTotalBytes: totalBytes
+            rawTotalBytes: stats.usedBytes
         });
     } catch (error) {
         console.error("Storage Error:", error);

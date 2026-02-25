@@ -56,9 +56,18 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
                     body: JSON.stringify({
                         filename: filePath,
                         contentType: file.type || 'application/octet-stream',
-                        uid: auth.currentUser?.uid
+                        uid: auth.currentUser?.uid,
+                        fileSize: file.size
                     })
                 });
+
+                if (presignRes.status === 403) {
+                    const errorData = await presignRes.json();
+                    alert(`Tárhely korlát túllépve! (${errorData.usedGB} GB / ${errorData.totalGB} GB használt). Kérlek bővítsd a tárhelyedet!`);
+                    throw new Error("Quota exceeded");
+                }
+
+                if (!presignRes.ok) throw new Error("Failed to get presigned URL");
                 const { url } = await presignRes.json();
 
                 // 2. Upload via XMLHttpRequest for progress tracking
