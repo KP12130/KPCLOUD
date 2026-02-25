@@ -53,10 +53,12 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
                 const presignRes = await fetch('/api/upload/presign', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filename: filePath, contentType: file.type || 'application/octet-stream' })
+                    body: JSON.stringify({
+                        filename: filePath,
+                        contentType: file.type || 'application/octet-stream',
+                        uid: auth.currentUser?.uid
+                    })
                 });
-
-                if (!presignRes.ok) throw new Error("Failed to get presigned URL");
                 const { url } = await presignRes.json();
 
                 // 2. Upload via XMLHttpRequest for progress tracking

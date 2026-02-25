@@ -135,8 +135,7 @@ function App() {
             <h1 className="text-2xl text-gray-100 font-normal tracking-wide mb-8 pl-2">
               {currentMenu === 'My Data' ? (user ? `Welcome, ${user.displayName.split(' ')[0]}` : 'Welcome to Grid Access') : currentMenu}
             </h1>
-
-            <FileList currentMenu={currentMenu} />
+            <FileList currentMenu={currentMenu} user={user} />
           </div>
 
         </main>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const FileList = ({ currentMenu = 'My Data' }) => {
+const FileList = ({ currentMenu = 'My Data', user }) => {
     const [view, setView] = useState('list');
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,10 +24,15 @@ const FileList = ({ currentMenu = 'My Data' }) => {
     };
 
     const fetchFiles = async () => {
+        if (!user) {
+            setFiles([]);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             // Fetch from the Express backend
-            const response = await fetch('/api/files');
+            const response = await fetch(`/api/files?uid=${user.uid}`);
             const data = await response.json();
 
             // Safeguard: Ensure data is an array before setting state
@@ -58,7 +63,7 @@ const FileList = ({ currentMenu = 'My Data' }) => {
             window.removeEventListener('fileUploaded', handleUploadEvent);
             window.removeEventListener('click', handleClickOutside);
         };
-    }, []);
+    }, [user]);
 
     const handleContextMenu = (e, item) => {
         e.preventDefault();
@@ -74,11 +79,11 @@ const FileList = ({ currentMenu = 'My Data' }) => {
         try {
             if (item.isFolder) {
                 // Trigger native browser download behavior for the zip endpoint
-                window.location.href = `/api/download-folder/${encodeURIComponent(item.fullPath)}`;
+                window.location.href = `/api/download-folder/${encodeURIComponent(item.fullPath)}?uid=${user.uid}`;
                 return;
             }
 
-            const response = await fetch(`/api/download/${encodeURIComponent(item.fullPath)}`);
+            const response = await fetch(`/api/download/${encodeURIComponent(item.fullPath)}?uid=${user.uid}`);
             const data = await response.json();
             if (data.url) {
                 const a = document.createElement('a');
@@ -98,7 +103,7 @@ const FileList = ({ currentMenu = 'My Data' }) => {
         if (!window.confirm(`Are you sure you want to permanently delete this ${itemType}: ${item.displayName || item.name}?`)) return;
 
         try {
-            const response = await fetch(`/api/delete/${encodeURIComponent(item.fullPath)}`, { method: 'DELETE' });
+            const response = await fetch(`/api/delete/${encodeURIComponent(item.fullPath)}?uid=${user.uid}`, { method: 'DELETE' });
             if (response.ok) {
                 fetchFiles();
             }

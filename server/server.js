@@ -62,15 +62,17 @@ const getFileType = (filename) => {
 // API: Get Files from R2
 app.get('/api/files', async (req, res) => {
     try {
-        console.log("--> GET /api/files endpoint hit");
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+        const prefix = `${uid}/`;
+
         if (!s3) {
-            console.error("s3 client is undefined. Are R2 env vars set? (ACCESS_KEY_ID, SECRET_ACCESS_KEY, ACCOUNT_ID)");
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
-        console.log(`Executing ListObjectsV2Command for bucket: ${BUCKET_NAME}`);
         const command = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
+            Prefix: prefix
         });
 
         const response = await s3.send(command);
@@ -82,12 +84,15 @@ app.get('/api/files', async (req, res) => {
             if (sizeInBytes > 1024 * 1024) formattedSize = (sizeInBytes / (1024 * 1024)).toFixed(1) + ' MB';
             else if (sizeInBytes > 1024) formattedSize = (sizeInBytes / 1024).toFixed(1) + ' KB';
 
+            // Strip the uid/ prefix for the UI
+            const relativeName = item.Key.startsWith(prefix) ? item.Key.substring(prefix.length) : item.Key;
+
             return {
                 id: item.ETag || index + 1,
-                name: item.Key,
+                name: relativeName,
                 size: formattedSize,
                 sizeBytes: sizeInBytes,
-                type: getFileType(item.Key),
+                type: getFileType(relativeName),
                 modified: item.LastModified ? item.LastModified.toLocaleDateString() : new Date().toLocaleDateString(),
                 owner: 'me'
             };
@@ -103,18 +108,17 @@ app.get('/api/files', async (req, res) => {
 // API: Upload File to R2
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
-        console.log("--> POST /api/upload endpoint hit");
+        const uid = req.body.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
         if (!req.file) {
-            console.warn("No file object received in req.file");
             return res.status(400).json({ error: 'No file uploaded' });
         }
         if (!s3) {
-            console.error("s3 client is undefined during upload.");
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
-        const uploadKey = req.body.path || req.file.originalname;
-        console.log(`Executing PutObjectCommand for file: ${uploadKey}`);
+        const uploadKey = `${uid}/${req.body.path || req.file.originalname}`;
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
             Key: uploadKey,
@@ -134,14 +138,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 // API: Download File from R2
 app.get('/api/download/:filename(*)', async (req, res) => {
     try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
+        const fullKey = `${uid}/${req.params.filename}`;
         const command = new GetObjectCommand({
             Bucket: BUCKET_NAME,
-            Key: req.params.filename,
-            ResponseContentDisposition: `attachment; filename="${req.params.filename}"`
+            Key: fullKey,
+            ResponseContentDisposition: `attachment; filename="${req.params.filename.split('/').pop()}"`
         });
 
         const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
@@ -155,12 +163,16 @@ app.get('/api/download/:filename(*)', async (req, res) => {
 // API: Download Entire Folder as ZIP
 app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
     try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
-        const prefix = req.params.folderPath;
-        if (!prefix.endsWith('/')) {
+        const relativePrefix = req.params.folderPath;
+        const fullPrefix = `${uid}/${relativePrefix}`;
+        if (!relativePrefix.endsWith('/')) {
             return res.status(400).json({ error: 'FolderPath must end with a slash' });
         }
 
@@ -173,14 +185,14 @@ app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
         while (isTruncated) {
             const listCommand = new ListObjectsV2Command({
                 Bucket: BUCKET_NAME,
-                Prefix: prefix,
+                Prefix: fullPrefix,
                 ContinuationToken: continuationToken
             });
             const response = await s3.send(listCommand);
 
             if (response.Contents) {
                 for (const item of response.Contents) {
-                    if (item.Key === prefix) continue; // Skip the folder itself if it exists as an object
+                    if (item.Key === fullPrefix) continue; // Skip the folder itself if it exists as an object
 
                     const getCommand = new GetObjectCommand({
                         Bucket: BUCKET_NAME,
@@ -199,7 +211,7 @@ app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
 
                     const fileBuffer = await streamToBuffer(fileResponse.Body);
                     // Determine relative path inside the zip
-                    const relativePath = item.Key.substring(prefix.length);
+                    const relativePath = item.Key.substring(fullPrefix.length);
                     zip.file(relativePath, fileBuffer);
                     fileCount++;
                 }
@@ -216,7 +228,7 @@ app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
         const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 
         // Return zip as attachment
-        const folderName = prefix.split('/').filter(Boolean).pop() || 'folder';
+        const folderName = relativePrefix.split('/').filter(Boolean).pop() || 'folder';
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"`);
         res.send(zipBuffer);
@@ -230,17 +242,20 @@ app.get('/api/download-folder/:folderPath(*)', async (req, res) => {
 // API: Generate Pre-signed URL for direct R2 Upload
 app.post('/api/upload/presign', async (req, res) => {
     try {
-        const { filename, contentType } = req.body;
+        const { filename, contentType, uid } = req.body;
         if (!filename) {
             return res.status(400).json({ error: 'Filename is required' });
         }
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
+        const fullKey = `${uid}/${filename}`;
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,
-            Key: filename,
+            Key: fullKey,
             ContentType: contentType || 'application/octet-stream'
         });
 
@@ -256,12 +271,16 @@ app.post('/api/upload/presign', async (req, res) => {
 // API: Delete File or Folder from R2
 app.delete('/api/delete/:filename(*)', async (req, res) => {
     try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
         if (!s3) {
             return res.status(500).json({ error: 'R2 Client not initialized' });
         }
 
-        const target = req.params.filename;
-        const isFolder = target.endsWith('/');
+        const relativeTarget = req.params.filename;
+        const fullTarget = `${uid}/${relativeTarget}`;
+        const isFolder = relativeTarget.endsWith('/');
 
         if (isFolder) {
             // Recursive Folder Deletion
@@ -271,7 +290,7 @@ app.delete('/api/delete/:filename(*)', async (req, res) => {
             while (isTruncated) {
                 const listCommand = new ListObjectsV2Command({
                     Bucket: BUCKET_NAME,
-                    Prefix: target,
+                    Prefix: fullTarget,
                     ContinuationToken: continuationToken
                 });
 
@@ -296,7 +315,7 @@ app.delete('/api/delete/:filename(*)', async (req, res) => {
             // Single File Deletion
             const command = new DeleteObjectCommand({
                 Bucket: BUCKET_NAME,
-                Key: target,
+                Key: fullTarget,
             });
             await s3.send(command);
             res.json({ message: 'File deleted successfully' });
@@ -330,6 +349,7 @@ app.get('/api/storage', async (req, res) => {
 
         const command = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
+            Prefix: uid ? `${uid}/` : ''
         });
 
         const response = await s3.send(command);
