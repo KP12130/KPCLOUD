@@ -100,6 +100,109 @@ const getUserStorageStats = async (uid) => {
     };
 };
 
+// --- EMERGENCY PROTOCOL & BILLING CORE ---
+
+// Helper: Process Billing & Purge
+const processBilling = async (uid) => {
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) return;
+
+    const data = userSnap.data();
+    const now = Date.now();
+    const lastBilling = data.lastBillingDate || now;
+    const msSinceBilling = now - lastBilling;
+
+    // We process billing daily (86400000 ms)
+    if (msSinceBilling >= 24 * 60 * 60 * 1000 || !data.lastBillingDate) {
+        const stats = await getUserStorageStats(uid);
+        // Cost: 25 KPC / GB / Month -> (usedGB * 25) / 30 for daily
+        const dailyCost = (stats.usedBytes / (1024 ** 3)) * 25 / 30;
+        const newBalance = (data.kpcBalance || 0) - dailyCost;
+
+        const updates = {
+            kpcBalance: newBalance,
+            lastBillingDate: now
+        };
+
+        if (newBalance <= 0) {
+            if (data.kpc_status !== 'suspended' && data.kpc_status !== 'deleted') {
+                updates.kpc_status = 'suspended';
+                updates.suspension_start_date = now;
+                updates.auto_delete_date = now + (15 * 24 * 60 * 60 * 1000); // 15 Days
+            }
+        } else if (data.kpc_status === 'suspended') {
+            updates.kpc_status = 'active';
+            updates.suspension_start_date = admin.firestore.FieldValue.delete();
+            updates.auto_delete_date = admin.firestore.FieldValue.delete();
+        }
+
+        await userRef.update(updates);
+    }
+
+    // Auto-Purge Logic (Phase 4)
+    if (data.kpc_status === 'suspended' && data.auto_delete_date && now > data.auto_delete_date) {
+        console.log(`PURGING USER DATA for ${uid} (Quota expired)`);
+        try {
+            // List all objects for this user
+            const listCommand = new ListObjectsV2Command({ Bucket: BUCKET_NAME, Prefix: `${uid}/` });
+            const listRes = await s3.send(listCommand);
+            const objects = listRes.Contents || [];
+
+            if (objects.length > 0) {
+                const deleteCommand = new DeleteObjectsCommand({
+                    Bucket: BUCKET_NAME,
+                    Delete: { Objects: objects.map(o => ({ Key: o.Key })) }
+                });
+                await s3.send(deleteCommand);
+            }
+
+            await userRef.update({
+                kpc_status: 'deleted',
+                monthlyQuota: 1, // Reset to basic
+                kpcBalance: 0
+            });
+        } catch (purgeErr) {
+            console.error("Purge failed for user:", uid, purgeErr);
+        }
+    }
+};
+
+// Middleware: Guard against suspended users
+const billingGuard = async (req, res, next) => {
+    const uid = req.query.uid || req.body.uid;
+    if (!uid) return next();
+
+    try {
+        const userSnap = await db.collection('users').doc(uid).get();
+        if (userSnap.exists) {
+            const data = userSnap.data();
+
+            // Allow only storage and topup if suspended
+            const path = req.path;
+            const isReadOp = path === '/api/files' || path === '/api/storage';
+            const isPaymentOp = path === '/api/topup' || path === '/api/upload/presign' || path === '/api/upload';
+
+            if (data.kpc_status === 'suspended' || data.kpc_status === 'deleted') {
+                // Block downloads and deletes
+                if (path.startsWith('/api/download') || path.startsWith('/api/delete') || path.startsWith('/api/upload')) {
+                    return res.status(403).json({
+                        error: 'Account Suspended',
+                        status: data.kpc_status,
+                        auto_delete_date: data.auto_delete_date
+                    });
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Guard Error:", err);
+    }
+    next();
+};
+
+app.use(billingGuard);
+
+
 // API: Get Files from R2
 app.get('/api/files', async (req, res) => {
     try {
@@ -397,6 +500,12 @@ app.get('/api/storage', async (req, res) => {
         const uid = req.query.uid;
         if (!uid) return res.status(400).json({ error: 'UID is required' });
 
+        // Trigger billing processing on storage check
+        await processBilling(uid);
+
+        const userSnap = await db.collection('users').doc(uid).get();
+        const userData = userSnap.data() || {};
+
         const stats = await getUserStorageStats(uid);
         const usedGB = (stats.usedBytes / (1024 * 1024 * 1024)).toFixed(3);
         const percentage = Math.min(((usedGB / stats.quotaGB) * 100), 100).toFixed(1);
@@ -406,7 +515,10 @@ app.get('/api/storage', async (req, res) => {
             usedGB,
             totalGB: stats.quotaGB,
             percentage,
-            rawTotalBytes: stats.usedBytes
+            rawTotalBytes: stats.usedBytes,
+            kpc_status: userData.kpc_status || 'active',
+            auto_delete_date: userData.auto_delete_date || null,
+            suspension_start_date: userData.suspension_start_date || null
         });
     } catch (error) {
         console.error("Storage Error:", error);

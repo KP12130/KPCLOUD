@@ -14,6 +14,9 @@ function App() {
   const [monthlyQuota, setMonthlyQuota] = useState(1);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [kpcStatus, setKpcStatus] = useState('active');
+  const [autoDeleteDate, setAutoDeleteDate] = useState(null);
+  const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
     let unsubscribeDoc = null;
@@ -48,6 +51,8 @@ function App() {
               const data = doc.data();
               setKpcBalance(data.kpcBalance || 0);
               setMonthlyQuota(data.monthlyQuota || 1);
+              setKpcStatus(data.kpc_status || 'active');
+              setAutoDeleteDate(data.auto_delete_date || null);
             }
           }, (error) => {
             console.error("Firestore Listener Error:", error);
@@ -69,6 +74,28 @@ function App() {
       if (unsubscribeDoc) unsubscribeDoc();
     };
   }, []);
+
+  // Emergency Countdown Timer
+  useEffect(() => {
+    if (kpcStatus !== 'suspended' || !autoDeleteDate) return;
+
+    const timer = setInterval(() => {
+      const distance = autoDeleteDate - Date.now();
+      if (distance < 0) {
+        setTimeLeft("PURGING...");
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setTimeLeft(`${days}n ${hours}ó ${minutes}p ${seconds}m`);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [kpcStatus, autoDeleteDate]);
 
   const handleTopUp = async (amount) => {
     if (!user) return;
@@ -104,6 +131,25 @@ function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#030303] text-white font-mono overflow-hidden relative">
+      {/* Emergency Protocol Banner */}
+      {kpcStatus === 'suspended' && (
+        <div className="bg-rose-600 text-white py-2 px-4 text-center font-bold animate-pulse text-[10px] md:text-xs tracking-widest flex flex-wrap items-center justify-center gap-x-6 gap-y-2 z-[100] border-b border-white/20">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🚨</span>
+            <span className="uppercase">Veszélyhelyzeti Protokoll: Fiók Zárolva (0 KPC)</span>
+          </div>
+          <div className="bg-black/20 border border-white/30 px-4 py-1 rounded-full font-mono">
+            ADATMEGSEMMISÍTÉS: <span className="text-yellow-300">{timeLeft}</span>
+          </div>
+          <button
+            onClick={() => setIsPaywallOpen(true)}
+            className="bg-white text-rose-600 px-6 py-1 rounded-full hover:bg-rose-100 transition-all shadow-lg text-[10px] active:scale-95"
+          >
+            EGRIENLEGFELTÖLTÉS
+          </button>
+        </div>
+      )}
+
       {/* Background Visuals */}
       <div className="bg-grid"></div>
       <div className="bg-vignette"></div>
@@ -126,6 +172,7 @@ function App() {
           onOpenStore={() => setIsPaywallOpen(true)}
           kpcBalance={kpcBalance}
           monthlyQuota={monthlyQuota}
+          kpcStatus={kpcStatus}
         />
 
         {/* Central Drive Panel (Rounded Rectangle) */}
@@ -135,7 +182,7 @@ function App() {
             <h1 className="text-2xl text-gray-100 font-normal tracking-wide mb-8 pl-2">
               {currentMenu === 'My Data' ? (user ? `Welcome, ${user.displayName.split(' ')[0]}` : 'Welcome to Grid Access') : currentMenu}
             </h1>
-            <FileList currentMenu={currentMenu} user={user} />
+            <FileList currentMenu={currentMenu} user={user} kpcStatus={kpcStatus} />
           </div>
 
         </main>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const FileList = ({ currentMenu = 'My Data', user }) => {
+const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
     const [view, setView] = useState('list');
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);

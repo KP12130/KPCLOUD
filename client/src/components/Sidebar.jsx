@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth } from '../firebase';
 
-const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthlyQuota }) => {
+const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthlyQuota, kpcStatus }) => {
     const [storage, setStorage] = useState(null);
     const fileInputRef = useRef(null);
     const [uploading, setUploading] = useState(false);
@@ -141,8 +141,8 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
                 />
                 <button
                     onClick={() => fileInputRef.current.click()}
-                    disabled={uploading}
-                    className={`w-full py-2.5 px-4 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-xl ${uploading ? 'opacity-80 cursor-wait' : ''} relative overflow-hidden`}
+                    disabled={uploading || kpcStatus === 'suspended'}
+                    className={`w-full py-2.5 px-4 bg-cyan-950/40 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_15px_rgba(0,243,255,0.05)] rounded-xl ${uploading || kpcStatus === 'suspended' ? 'opacity-50 cursor-not-allowed' : ''} relative overflow-hidden`}
                 >
                     {uploading && (
                         <div
@@ -155,8 +155,8 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
                 </button>
                 <button
                     onClick={() => folderInputRef.current.click()}
-                    disabled={uploading}
-                    className={`w-full py-2.5 px-4 bg-cyan-950/20 border border-cyan-400/10 text-cyan-400/80 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 text-xs font-medium tracking-wide rounded-xl ${uploading ? 'opacity-80 cursor-wait' : ''} relative overflow-hidden`}
+                    disabled={uploading || kpcStatus === 'suspended'}
+                    className={`w-full py-2.5 px-4 bg-cyan-950/20 border border-cyan-400/10 text-cyan-400/80 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 text-xs font-medium tracking-wide rounded-xl ${uploading || kpcStatus === 'suspended' ? 'opacity-50 cursor-not-allowed' : ''} relative overflow-hidden`}
                 >
                     {uploading && (
                         <div
