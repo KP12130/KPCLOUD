@@ -193,6 +193,18 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                             </div>
                                         </div>
                                     ))}
+                                    {/* Manual Reset Option */}
+                                    <div className="mt-8 pt-6 border-t border-white/5">
+                                        <button
+                                            onClick={() => {
+                                                setExtraQuota(0);
+                                                setFeatures({ highSpeed: false, api: false, protection: false });
+                                            }}
+                                            className="text-[10px] text-gray-500 hover:text-rose-400 transition-colors uppercase tracking-[0.2em] font-bold flex items-center gap-2"
+                                        >
+                                            <span>🔄</span> Reset storage configuration to basic (1 GB)
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}

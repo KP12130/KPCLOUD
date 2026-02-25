@@ -131,7 +131,7 @@ const processBilling = async (uid) => {
                 updates.suspension_start_date = now;
                 updates.auto_delete_date = now + (15 * 24 * 60 * 60 * 1000); // 15 Days
             }
-        } else if (data.kpc_status === 'suspended') {
+        } else if (data.kpc_status === 'suspended' || data.kpc_status === 'deleted') {
             updates.kpc_status = 'active';
             updates.suspension_start_date = admin.firestore.FieldValue.delete();
             updates.auto_delete_date = admin.firestore.FieldValue.delete();
