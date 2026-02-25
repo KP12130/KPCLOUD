@@ -14,19 +14,16 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
     });
 
     const packs = [
-        { id: 'vandor', name: 'Vándor Pack', price: '$1.99', desc: '~20 GB extra hely egy hónapig.', kpc: 2000, color: 'text-gray-300' },
-        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: '(+10% bónusz) ~60 GB egy hónapig.', kpc: 6000, color: 'text-cyan-400' },
-        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: '(+30% bónusz) ~130 GB egy hónapig.', kpc: 13000, color: 'text-amber-400', popular: true },
-        { id: 'csaszar', name: 'Császár Pack', price: '$24.99', desc: '(+40% bónusz) Itt már komoly birodalmad van.', kpc: 35000, color: 'text-orange-400' },
-        { id: 'isten', name: 'Isten Pack', price: '$49.99', desc: '(+50% bónusz) Fél év 1 TB-os tárhely.', kpc: 75000, color: 'text-purple-400' },
-        { id: 'vegtelen', name: 'Végtelen Pack', price: '$99.99', desc: 'A legjobb üzlet. Több mint egy év 1 TB.', kpc: 160000, color: 'text-rose-500' }
+        { id: 'vandor', name: 'Vándor Pack', price: '$1.99', desc: '~50 GB tárhely 1 hónapig.', kpc: 1200, color: 'text-gray-300' },
+        { id: 'lovag', name: 'Lovag Pack', price: '$4.99', desc: '~130 GB tárhely 1 hónapig.', kpc: 3200, color: 'text-cyan-400' },
+        { id: 'uralkodo', name: 'Uralkodó Pack', price: '$9.99', desc: '~300 GB tárhely 1 hónapig.', kpc: 7000, color: 'text-amber-400', popular: true },
+        { id: 'csaszar', name: 'Császár Pack', price: '$24.99', desc: '~750 GB tárhely 1 hónapig.', kpc: 18000, color: 'text-orange-400' },
+        { id: 'isten', name: 'Isten Pack', price: '$49.99', desc: '1 TB tárhely 4 hónapig.', kpc: 40000, color: 'text-purple-400' },
+        { id: 'vegtelen', name: 'Végtelen Pack', price: '$99.99', desc: '1 TB tárhely 1 évig + 20% bónusz.', kpc: 100000, color: 'text-rose-500' }
     ];
 
     const getRate = (gb) => {
-        if (gb <= 10) return 20;
-        if (gb <= 100) return 15;
-        if (gb <= 500) return 12;
-        return 10;
+        return 25; // Base price: 25 KPC / GB / month
     };
 
     const calculateMonthlyCost = () => {
@@ -152,7 +149,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                         <div className="text-right">
                                             <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Unit Price</div>
                                             <div className="text-2xl font-bold text-emerald-400 font-mono">{getRate(currentQuota + extraQuota)} KPC / GB</div>
-                                            <div className="text-[10px] text-gray-600">Quantity Discount Applied</div>
+                                            <div className="text-[10px] text-gray-600">Fixed Grid Rate</div>
                                         </div>
                                     </div>
 
