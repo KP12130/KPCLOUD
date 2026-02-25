@@ -6,7 +6,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Converter State
-    const [extraQuota, setExtraQuota] = useState(0); // This is the ADDED quota
+    const [targetQuota, setTargetQuota] = useState(currentQuota); // This is the TOTAL target quota
     const [features, setFeatures] = useState({
         highSpeed: false,
         apiAccess: false,
@@ -27,8 +27,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
     };
 
     const calculateMonthlyCost = () => {
-        const total = currentQuota + extraQuota;
-        const newCost = total * getRate(total);
+        const newCost = targetQuota * getRate(targetQuota);
         const currentCost = currentQuota * getRate(currentQuota);
         return Math.max(0, newCost - currentCost);
     };
@@ -51,7 +50,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
             return;
         }
         setIsProcessing(true);
-        await onApplyConfig(currentQuota + extraQuota, cost);
+        await onApplyConfig(targetQuota, cost);
         setIsProcessing(false);
         onClose();
     };
@@ -128,42 +127,41 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                 <div className="mb-12 bg-black/40 p-8 rounded-3xl border border-white/5">
                                     <div className="flex items-center justify-between mb-8">
                                         <div>
-                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Storage Expansion</div>
+                                            <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Total Storage</div>
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-4xl font-black text-white">+</span>
                                                 <input
                                                     type="number"
-                                                    value={extraQuota}
-                                                    min="0"
+                                                    value={targetQuota}
+                                                    min="1"
                                                     max="1024"
                                                     onChange={(e) => {
-                                                        const val = parseInt(e.target.value) || 0;
-                                                        setExtraQuota(Math.min(1024, Math.max(0, val)));
+                                                        const val = parseInt(e.target.value) || 1;
+                                                        setTargetQuota(Math.min(1024, Math.max(1, val)));
                                                     }}
                                                     className="w-24 bg-transparent text-4xl font-black text-white border-b-2 border-cyan-500/50 focus:border-cyan-400 outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                 />
                                                 <span className="text-lg text-cyan-500 font-bold">GB</span>
                                             </div>
-                                            <div className="text-[11px] text-gray-500 mt-1">New Total: <span className="text-white font-bold">{currentQuota + extraQuota} GB</span></div>
+                                            <div className="text-[11px] text-gray-500 mt-1">Current: <span className="text-white font-bold">{currentQuota} GB</span></div>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Unit Price</div>
-                                            <div className="text-2xl font-bold text-emerald-400 font-mono">{getRate(currentQuota + extraQuota)} KPC / GB</div>
+                                            <div className="text-2xl font-bold text-emerald-400 font-mono">{getRate(targetQuota)} KPC / GB</div>
                                             <div className="text-[10px] text-gray-600">Fixed Grid Rate</div>
                                         </div>
                                     </div>
 
                                     <input
                                         type="range"
-                                        min="0"
+                                        min="1"
                                         max="1024"
                                         step="1"
-                                        value={extraQuota}
-                                        onChange={(e) => setExtraQuota(parseInt(e.target.value))}
+                                        value={targetQuota}
+                                        onChange={(e) => setTargetQuota(parseInt(e.target.value))}
                                         className="w-full h-2 bg-cyan-950 rounded-lg appearance-none cursor-pointer accent-cyan-500 shadow-[0_0_10px_rgba(0,243,255,0.2)]"
                                     />
                                     <div className="flex justify-between mt-4 text-[10px] font-bold text-gray-600 uppercase tracking-tighter">
-                                        <span>+0 GB</span>
+                                        <span>1 GB</span>
                                         <span>250 GB</span>
                                         <span>500 GB (Titan)</span>
                                         <span>750 GB</span>
@@ -197,12 +195,12 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                     <div className="mt-8 pt-6 border-t border-white/5">
                                         <button
                                             onClick={() => {
-                                                setExtraQuota(0);
-                                                setFeatures({ highSpeed: false, api: false, protection: false });
+                                                setTargetQuota(1);
+                                                setFeatures({ highSpeed: false, apiAccess: false, protection: false });
                                             }}
                                             className="text-[10px] text-gray-500 hover:text-rose-400 transition-colors uppercase tracking-[0.2em] font-bold flex items-center gap-2"
                                         >
-                                            <span>🔄</span> Reset storage configuration to basic (1 GB)
+                                            <span>🔄</span> Reset account to basic free tier (1 GB)
                                         </button>
                                     </div>
                                 </div>
@@ -224,7 +222,7 @@ const ConverterHub = ({ onClose, onTopUp, kpcBalance, currentQuota = 1, onApplyC
                                     <>
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-400">Target Quota</span>
-                                            <span className="text-cyan-400 font-bold">{currentQuota + extraQuota} GB</span>
+                                            <span className="text-cyan-400 font-bold">{targetQuota} GB</span>
                                         </div>
                                         <div className="border-t border-white/5 pt-4">
                                             <div className="flex justify-between text-lg font-bold">
