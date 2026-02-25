@@ -138,9 +138,11 @@ const processBilling = async (uid) => {
 
     // We process billing daily (86400000 ms)
     if (msSinceBilling >= 24 * 60 * 60 * 1000 || !data.lastBillingDate) {
-        const stats = await getUserStorageStats(uid);
-        // Cost: 25 KPC / GB / Month -> (usedGB * 25) / 30 for daily
-        const dailyCost = (stats.usedBytes / (1024 ** 3)) * 25 / 30;
+        // Predictable Billing: Cost is based on Quota, not actual used bytes.
+        // First 1 GB (Basic) is FREE.
+        const monthlyQuota = data.monthlyQuota || 1;
+        const paidGB = Math.max(0, monthlyQuota - 1);
+        const dailyCost = (paidGB * 25) / 30;
         const newBalance = (data.kpcBalance || 0) - dailyCost;
 
         const updates = {
