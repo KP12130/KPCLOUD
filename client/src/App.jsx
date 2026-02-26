@@ -6,6 +6,7 @@ import PaywallModal from './components/PaywallModal';
 import MediaPreview from './components/MediaPreview';
 import LandingPage from './components/LandingPage';
 import Settings from './components/Settings';
+import ActivityLogs from './components/ActivityLogs';
 import { auth, db, signInWithGoogle } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
@@ -199,6 +200,8 @@ function App() {
                 balance={kpcBalance}
                 onUpgrade={() => setIsPaywallOpen(true)}
               />
+            ) : currentMenu === 'Recent Activity' ? (
+              <ActivityLogs uid={user?.uid} />
             ) : (
               <FileList
                 currentMenu={currentMenu}

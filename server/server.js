@@ -82,6 +82,45 @@ const getFileType = (filename) => {
     return 'DOCUMENT';
 };
 
+// Helper: Log User Activity
+const logActivity = async (uid, action, details = {}) => {
+    try {
+        await db.collection('users').doc(uid).collection('activities').add({
+            action,
+            details,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`[Log] ${uid}: ${action} - ${JSON.stringify(details)}`);
+    } catch (err) {
+        console.error("Failed to log activity:", err);
+    }
+};
+
+// API: List Activity Logs
+app.get('/api/logs', async (req, res) => {
+    try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
+        const snapshot = await db.collection('users').doc(uid)
+            .collection('activities')
+            .orderBy('timestamp', 'desc')
+            .limit(50)
+            .get();
+
+        const logs = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp ? doc.data().timestamp.toDate() : new Date()
+        }));
+
+        res.json(logs);
+    } catch (error) {
+        console.error("Logs Fetch Error:", error);
+        res.status(500).json({ error: 'Failed to fetch activity logs' });
+    }
+});
+
 // Helper: Get user storage stats (used bytes & quota)
 const getUserStorageStats = async (uid) => {
     // 1. Get Quota from Firestore
@@ -155,6 +194,7 @@ const processBilling = async (uid) => {
                 email_sent_warning_final: admin.firestore.FieldValue.delete()
             };
             await userRef.update(updates);
+            await logActivity(uid, 'BILLING_RENEWAL', { cost: monthlyCost, quota: monthlyQuota });
             console.log(`Subscription Renewed for ${uid} (-${monthlyCost} KPC)`);
         } else if (data.kpc_status !== 'suspended' && data.kpc_status !== 'deleted') {
             // Renewal Failure: Suspend Account
@@ -164,6 +204,7 @@ const processBilling = async (uid) => {
                 auto_delete_date: now + (15 * 24 * 60 * 60 * 1000)
             };
             await userRef.update(updates);
+            await logActivity(uid, 'BILLING_SUSPENSION', { reason: 'insufficient_funds', cost: monthlyCost });
 
             // Phase 1 Email
             await sendEmail(data.email, "🛑 RENDSZERÜZENET: Fiókod zárolásra került!", `
@@ -188,6 +229,7 @@ const processBilling = async (uid) => {
             email_sent_warning_final: admin.firestore.FieldValue.delete()
         };
         await userRef.update(updates);
+        await logActivity(uid, 'BILLING_RECOVERY', { cost: monthlyCost });
         console.log(`User ${uid} recovered from suspension via top-up.`);
     }
 
@@ -222,6 +264,7 @@ const processBilling = async (uid) => {
     // --- AUTO-PURGE LOGIC (Phase 4) ---
     if (data.kpc_status === 'suspended' && data.auto_delete_date && now > data.auto_delete_date) {
         console.log(`PURGING USER DATA for ${uid} (Quota expired)`);
+        await logActivity(uid, 'AUTO_PURGE', { reason: 'grace_period_expired' });
         try {
             const listCommand = new ListObjectsV2Command({ Bucket: BUCKET_NAME, Prefix: `${uid}/` });
             const listRes = await s3.send(listCommand);
@@ -516,6 +559,9 @@ app.post('/api/upload/presign', async (req, res) => {
 
         // Generate a URL valid for 1 hour
         const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+
+        await logActivity(uid, 'UPLOAD_STARTED', { filename, fileSize });
+
         res.json({ url, key: filename });
     } catch (error) {
         console.error("Presign URL Error:", error);
@@ -575,7 +621,13 @@ app.delete('/api/delete/:filename(*)', async (req, res) => {
             await processItem(fullKey);
         }
 
-        res.json({ message: permanent ? 'Deleted permanently' : 'Moved to trash' });
+        if (permanent) {
+            await logActivity(uid, 'PERMANENT_DELETE', { path: filename, isFolder });
+        } else {
+            await logActivity(uid, 'MOVE_TO_TRASH', { path: filename, isFolder });
+        }
+
+        res.json({ message: isFolder ? 'Folder processing started' : 'File processing started' });
     } catch (error) {
         console.error("Delete Error:", error);
         res.status(500).json({ error: 'Failed to process deletion' });
@@ -647,7 +699,9 @@ app.post('/api/trash/restore', async (req, res) => {
             await restoreItem(trashKey);
         }
 
-        res.json({ message: 'Restored successfully' });
+        await logActivity(uid, 'RESTORE', { filename, isFolder });
+
+        res.json({ message: 'Restore completed' });
     } catch (error) {
         res.status(500).json({ error: 'Restore failed' });
     }
@@ -697,6 +751,7 @@ app.get('/api/preview/:filename(*)', async (req, res) => {
 
         // Generate URL for inline viewing (10 mins)
         const url = await getSignedUrl(s3, command, { expiresIn: 600 });
+        await logActivity(uid, 'PREVIEW', { filename });
         res.json({ url });
     } catch (error) {
         console.error("Preview URL Error:", error);
@@ -711,6 +766,7 @@ app.post('/api/share', async (req, res) => {
         const fullKey = `${uid}/${filename}`;
         const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: fullKey });
         const url = await getSignedUrl(s3, command, { expiresIn: 60 * 60 * 24 * 7 }); // 7 Days
+        await logActivity(uid, 'SHARE_LINK', { filename });
         res.json({ url });
     } catch (error) {
         res.status(500).json({ error: 'Share link generation failed' });
