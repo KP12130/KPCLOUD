@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import FileList from './components/FileList';
 import PaywallModal from './components/PaywallModal';
 import MediaPreview from './components/MediaPreview';
+import LandingPage from './components/LandingPage';
 import { auth, db, signInWithGoogle } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
@@ -130,6 +131,10 @@ function App() {
         <div className="text-cyan-500 animate-pulse font-mono tracking-widest text-xl">INITIALIZING GRID...</div>
       </div>
     );
+  }
+
+  if (!user) {
+    return <LandingPage onLogin={signInWithGoogle} />;
   }
 
   return (
