@@ -15,6 +15,11 @@ function App() {
   const [currentMenu, setCurrentMenu] = useState('My Data');
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [previewItem, setPreviewItem] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+  };
   const [kpcBalance, setKpcBalance] = useState(0);
   const [monthlyQuota, setMonthlyQuota] = useState(1);
   const [user, setUser] = useState(null);
@@ -171,6 +176,7 @@ function App() {
         onSignOut={handleSignOut}
         kpcBalance={kpcBalance}
         onOpenStore={() => setIsPaywallOpen(true)}
+        onSearch={handleSearch}
       />
 
       {/* Main Layout Area */}
@@ -208,6 +214,7 @@ function App() {
                 user={user}
                 kpcStatus={kpcStatus}
                 onPreview={(item) => setPreviewItem(item)}
+                searchQuery={searchQuery}
               />
             )}
           </div>

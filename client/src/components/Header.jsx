@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = ({ kpcBalance, onOpenStore, user, onSignIn, onSignOut }) => {
+const Header = ({ kpcBalance, onOpenStore, user, onSignIn, onSignOut, onSearch }) => {
     return (
         <header className="h-16 w-full flex items-center justify-between px-4 z-20 shrink-0">
             {/* Logo Area */}
@@ -20,6 +20,7 @@ const Header = ({ kpcBalance, onOpenStore, user, onSignIn, onSignOut }) => {
                     <input
                         type="text"
                         placeholder="Search in KPCloud..."
+                        onChange={(e) => onSearch && onSearch(e.target.value)}
                         className="w-full bg-cyan-950/20 border border-white/5 rounded-full py-3 px-12 text-sm focus:outline-none focus:border-cyan-500/50 focus:bg-cyan-950/40 transition-all text-white placeholder-gray-500 shadow-inner"
                     />
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview }) => {
+const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQuery = '' }) => {
     const [view, setView] = useState('list');
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -167,11 +167,25 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview }) => {
             case 'LOG': return '📝';
             case 'DESIGN': return '🎨';
             case 'IMAGE': return '🖼️';
+            case 'VIDEO': return '🎬';
             default: return '📜';
         }
     }
 
     const displayItems = useMemo(() => {
+        // --- GLOBAL SEARCH OVERRIDE ---
+        if (searchQuery && searchQuery.trim().length > 0) {
+            const query = searchQuery.toLowerCase();
+            return files.filter(file =>
+                file.name.toLowerCase().includes(query)
+            ).map(file => ({
+                ...file,
+                displayName: file.name.split('/').pop() || file.name,
+                isFolder: false, // In search results, show as files
+                fullPath: file.name
+            }));
+        }
+
         if (currentMenu === 'Trash Bin') {
             return files.map((file, idx) => ({
                 ...file,
@@ -241,7 +255,7 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview }) => {
 
         // Folders first, then files
         return [...Array.from(folders.values()), ...items];
-    }, [files, currentPath, currentMenu, starredFiles]);
+    }, [files, currentPath, currentMenu, starredFiles, searchQuery]);
 
     return (
         <div className="flex flex-col w-full h-full pb-20 relative z-20">
