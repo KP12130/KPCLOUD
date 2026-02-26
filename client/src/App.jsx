@@ -226,7 +226,7 @@ function App() {
       {previewItem && (
         <MediaPreview
           item={previewItem}
-          uid={user?.uid}
+          uid={previewItem.effectiveUid || user.uid}
           onClose={() => setPreviewItem(null)}
         />
       )}

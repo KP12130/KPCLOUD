@@ -773,6 +773,53 @@ app.post('/api/share', async (req, res) => {
     }
 });
 
+// API: Share Folder (Collaboration)
+app.post('/api/folders/share', async (req, res) => {
+    try {
+        const { uid, folderPath, targetEmail } = req.body;
+        if (!uid || !folderPath || !targetEmail) return res.status(400).json({ error: 'Missing data' });
+
+        // Find target user
+        const usersRef = db.collection('users');
+        const snapshot = await usersRef.where('email', '==', targetEmail).limit(1).get();
+        if (snapshot.empty) return res.status(404).json({ error: 'Target user not found' });
+
+        const targetUid = snapshot.docs[0].id;
+        const ownerSnap = await db.collection('users').doc(uid).get();
+        const ownerData = ownerSnap.data() || {};
+
+        const shareData = {
+            ownerUid: uid,
+            ownerName: ownerData.displayName || 'Unknown',
+            targetUid,
+            folderPath, // e.g. "Work/ProjectX/"
+            sharedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        await db.collection('shared_folders').add(shareData);
+        await logActivity(uid, 'SHARE_FOLDER', { folderPath, targetEmail });
+
+        res.json({ message: 'Folder shared successfully' });
+    } catch (error) {
+        console.error("Folder share error:", error);
+        res.status(500).json({ error: 'Failed to share folder' });
+    }
+});
+
+// API: List folders shared with me
+app.get('/api/shared-folders', async (req, res) => {
+    try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
+        const snapshot = await db.collection('shared_folders').where('targetUid', '==', uid).get();
+        const shared = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json(shared);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch shared folders' });
+    }
+});
+
 // API: Get Storage Allocation
 app.get('/api/storage', async (req, res) => {
     try {

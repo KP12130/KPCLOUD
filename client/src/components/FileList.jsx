@@ -6,6 +6,10 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
     const [loading, setLoading] = useState(true);
     const [currentPath, setCurrentPath] = useState('');
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, item: null });
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareTargetEmail, setShareTargetEmail] = useState('');
+    const [sharedOwnerUid, setSharedOwnerUid] = useState(null);
+    const [sharedRootPath, setSharedRootPath] = useState('');
 
     const isPreviewable = (item) => {
         return item && (item.type === 'IMAGE' || item.type === 'VIDEO');
@@ -13,9 +17,20 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
 
     const handleItemAction = (item) => {
         if (item.isFolder) {
-            setCurrentPath(item.fullPath);
+            if (item.isIncomingShare) {
+                setSharedOwnerUid(item.ownerUid);
+                setSharedRootPath(item.fullPath);
+                setCurrentPath(item.fullPath);
+            } else {
+                setCurrentPath(item.fullPath);
+            }
         } else if (isPreviewable(item)) {
-            onPreview(item);
+            // Attach ownerUid or sharedOwnerUid if it's collaborative content
+            const previewItem = {
+                ...item,
+                effectiveUid: item.ownerUid || sharedOwnerUid || user.uid
+            };
+            onPreview(previewItem);
         }
     };
 
@@ -43,15 +58,33 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
         }
         setLoading(true);
         try {
-            const isTrashView = currentMenu === 'Trash Bin';
-            const endpoint = isTrashView ? `/api/trash?uid=${user.uid}` : `/api/files?uid=${user.uid}`;
-            const response = await fetch(endpoint);
-            const data = await response.json();
-
-            if (Array.isArray(data)) {
-                setFiles(data);
+            if (currentMenu === 'Shared with me' && !sharedOwnerUid) {
+                // Fetch the list of folders shared WITH me
+                const response = await fetch(`/api/shared-folders?uid=${user.uid}`);
+                const data = await response.json();
+                // Map to a format FileList understands (treating them as special folders)
+                setFiles(data.map(s => ({
+                    id: s.id,
+                    name: s.folderPath,
+                    type: 'FOLDER',
+                    isFolder: true,
+                    owner: s.ownerName,
+                    ownerUid: s.ownerUid,
+                    isIncomingShare: true,
+                    fullPath: s.folderPath
+                })));
             } else {
-                setFiles([]);
+                const targetUid = sharedOwnerUid || user.uid;
+                const isTrashView = currentMenu === 'Trash Bin';
+                const endpoint = isTrashView ? `/api/trash?uid=${targetUid}` : `/api/files?uid=${targetUid}`;
+                const response = await fetch(endpoint);
+                const data = await response.json();
+
+                if (Array.isArray(data)) {
+                    setFiles(data);
+                } else {
+                    setFiles([]);
+                }
             }
         } catch (error) {
             console.error("Error fetching files:", error);
@@ -61,7 +94,38 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
         }
     };
 
+    const handleFolderShare = async () => {
+        if (!shareTargetEmail) return;
+        try {
+            const response = await fetch('/api/folders/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    uid: user.uid,
+                    folderPath: contextMenu.item.fullPath,
+                    targetEmail: shareTargetEmail
+                })
+            });
+            if (response.ok) {
+                alert(`Folder shared with ${shareTargetEmail}!`);
+                setIsShareModalOpen(false);
+                setShareTargetEmail('');
+            } else {
+                const err = await response.json();
+                alert(`Error: ${err.error}`);
+            }
+        } catch (error) {
+            console.error("Share error:", error);
+        }
+    };
+
     useEffect(() => {
+        // Reset shared states when switching menus (unless it's the same menu being refreshed)
+        if (currentMenu !== 'Shared with me') {
+            setSharedOwnerUid(null);
+            setSharedRootPath('');
+        }
+
         fetchFiles();
 
         const handleUploadEvent = () => fetchFiles();
@@ -74,7 +138,7 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
             window.removeEventListener('fileUploaded', handleUploadEvent);
             window.removeEventListener('click', handleClickOutside);
         };
-    }, [user, currentMenu]);
+    }, [user, currentMenu, sharedOwnerUid]);
 
     const handleContextMenu = (e, item) => {
         e.preventDefault();
@@ -88,13 +152,15 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
 
     const handleDownload = async (item) => {
         try {
+            const targetUid = item.ownerUid || sharedOwnerUid || user.uid;
+
             if (item.isFolder) {
                 // Trigger native browser download behavior for the zip endpoint
-                window.location.href = `/api/download-folder/${encodeURIComponent(item.fullPath)}?uid=${user.uid}`;
+                window.location.href = `/api/download-folder/${encodeURIComponent(item.fullPath)}?uid=${targetUid}`;
                 return;
             }
 
-            const response = await fetch(`/api/download/${encodeURIComponent(item.fullPath)}?uid=${user.uid}`);
+            const response = await fetch(`/api/download/${encodeURIComponent(item.fullPath)}?uid=${targetUid}`);
             const data = await response.json();
             if (data.url) {
                 const a = document.createElement('a');
@@ -265,14 +331,25 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-400 max-w-[60%] overflow-hidden truncate">
                     <button
-                        onClick={() => setCurrentPath('')}
+                        onClick={() => {
+                            if (sharedOwnerUid) {
+                                setSharedOwnerUid(null);
+                                setSharedRootPath('');
+                            }
+                            setCurrentPath('');
+                        }}
                         className={`hover:text-cyan-400 transition-colors ${currentPath === '' ? 'text-cyan-400' : ''}`}
-                        disabled={currentMenu !== 'My Data'}
+                        disabled={currentMenu !== 'My Data' && currentMenu !== 'Shared with me'}
                     >
                         {currentMenu}
                     </button>
-                    {currentMenu === 'My Data' && currentPath.split('/').filter(Boolean).map((part, index, arr) => {
+                    {(currentMenu === 'My Data' || sharedOwnerUid) && currentPath.split('/').filter(Boolean).map((part, index, arr) => {
                         const pathSoFar = arr.slice(0, index + 1).join('/') + '/';
+                        // If we are in a shared folder, don't show the parts of the path that are HIGHER than the shared root
+                        if (sharedOwnerUid && !pathSoFar.startsWith(sharedRootPath) && pathSoFar !== sharedRootPath) return null;
+
+                        const displayPart = sharedOwnerUid && pathSoFar === sharedRootPath ? 'Root' : part;
+
                         return (
                             <React.Fragment key={pathSoFar}>
                                 <span>/</span>
@@ -280,7 +357,7 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
                                     onClick={() => setCurrentPath(pathSoFar)}
                                     className={`hover:text-cyan-400 transition-colors ${pathSoFar === currentPath ? 'text-cyan-400' : ''}`}
                                 >
-                                    {part}
+                                    {displayPart}
                                 </button>
                             </React.Fragment>
                         );
@@ -486,6 +563,9 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
                         </>
                     ) : (
                         <>
+                            <div className="px-4 py-1 text-[10px] text-cyan-500/50 uppercase font-bold tracking-widest border-b border-cyan-900/30 mb-1">
+                                {sharedOwnerUid ? 'Shared Access' : 'Owner Actions'}
+                            </div>
                             {isPreviewable(contextMenu.item) && (
                                 <button
                                     onClick={() => { onPreview(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
@@ -500,28 +580,95 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview, searchQ
                             >
                                 <span>📥</span> Download {contextMenu.item.isFolder && "as ZIP"}
                             </button>
-                            <button
-                                onClick={() => { handleShare(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                                className="w-full text-left px-4 py-2 hover:bg-blue-500/20 hover:text-blue-300 transition-colors flex items-center gap-3"
-                            >
-                                <span>🔗</span> Share Link
-                            </button>
-                            {!contextMenu.item.isFolder && (
-                                <button
-                                    onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                                    className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
-                                >
-                                    <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
-                                </button>
+
+                            {!sharedOwnerUid && (
+                                <>
+                                    <button
+                                        onClick={() => { handleShare(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                        className="w-full text-left px-4 py-2 hover:bg-blue-500/20 hover:text-blue-300 transition-colors flex items-center gap-3"
+                                    >
+                                        <span>🔗</span> Copy Public Link
+                                    </button>
+
+                                    {contextMenu.item.isFolder && (
+                                        <button
+                                            onClick={() => { setIsShareModalOpen(true); setContextMenu({ ...contextMenu, visible: false }); }}
+                                            className="w-full text-left px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/30 text-indigo-300 transition-colors flex items-center gap-3 border-y border-indigo-500/20 my-1"
+                                        >
+                                            <span>👥</span> Share Folder (Collaboration)
+                                        </button>
+                                    )}
+
+                                    {!contextMenu.item.isFolder && (
+                                        <button
+                                            onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                            className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
+                                        >
+                                            <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                        className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
+                                    >
+                                        <span>🗑️</span> Move to Trash
+                                    </button>
+                                </>
                             )}
-                            <button
-                                onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                                className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
-                            >
-                                <span>🗑️</span> Move to Trash
-                            </button>
                         </>
                     )}
+                </div>
+            )}
+
+            {/* Share Folder Modal */}
+            {isShareModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <div className="w-full max-w-md glass-panel bg-[#071318] border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(0,243,255,0.2)]">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-2xl">
+                                👥
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white tracking-tight">Share Directory</h3>
+                                <p className="text-sm text-gray-500">Collaborate with another operative</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-cyan-500 uppercase tracking-widest mb-1 ml-1">FOLDER PATH</label>
+                                <div className="px-4 py-3 bg-black/40 border border-white/5 rounded-xl text-sm text-gray-400 font-mono truncate">
+                                    {contextMenu.item?.fullPath}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-cyan-500 uppercase tracking-widest mb-1 ml-1">COLLABORATOR EMAIL</label>
+                                <input
+                                    type="email"
+                                    value={shareTargetEmail}
+                                    onChange={(e) => setShareTargetEmail(e.target.value)}
+                                    placeholder="operative@kpcloud.online"
+                                    className="w-full bg-cyan-950/20 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-cyan-500/50 transition-all text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-8">
+                            <button
+                                onClick={() => setIsShareModalOpen(false)}
+                                className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl transition-all"
+                            >
+                                CANCEL
+                            </button>
+                            <button
+                                onClick={handleFolderShare}
+                                className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-all"
+                            >
+                                SHARE ACCESS
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
