@@ -1,11 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
+const FileList = ({ currentMenu = 'My Data', user, kpcStatus, onPreview }) => {
     const [view, setView] = useState('list');
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPath, setCurrentPath] = useState('');
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, item: null });
+
+    const isPreviewable = (item) => {
+        return item && (item.type === 'IMAGE' || item.type === 'VIDEO');
+    };
+
+    const handleItemAction = (item) => {
+        if (item.isFolder) {
+            setCurrentPath(item.fullPath);
+        } else if (isPreviewable(item)) {
+            onPreview(item);
+        }
+    };
 
     const [starredFiles, setStarredFiles] = useState(() => {
         try { return JSON.parse(localStorage.getItem('kpcloud_starred')) || {}; } catch { return {}; }
@@ -320,7 +332,7 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
                         {displayItems.map((item) => (
                             <div
                                 key={item.id}
-                                onDoubleClick={() => item.isFolder && setCurrentPath(item.fullPath)}
+                                onDoubleClick={() => handleItemAction(item)}
                                 onContextMenu={(e) => handleContextMenu(e, item)}
                                 className={`group flex items-center px-4 py-3 border-b border-cyan-900/20 border-l-2 border-l-transparent hover:bg-cyan-900/30 hover:shadow-[inset_0_0_20px_rgba(0,243,255,0.15)] hover:border-l-cyan-400 transition-all ${item.isFolder ? 'cursor-pointer' : ''}`}
                             >
@@ -394,7 +406,7 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
                     {displayItems.map((item) => (
                         <div
                             key={item.id}
-                            onDoubleClick={() => item.isFolder && setCurrentPath(item.fullPath)}
+                            onDoubleClick={() => handleItemAction(item)}
                             onContextMenu={(e) => handleContextMenu(e, item)}
                             className={`group flex flex-col glass-panel bg-cyan-950/20 border border-cyan-900/30 hover:border-cyan-400/50 hover:bg-cyan-900/40 hover:shadow-[0_0_20px_rgba(0,243,255,0.2)] rounded-2xl transition-all overflow-hidden relative ${item.isFolder ? 'cursor-pointer' : ''}`}
                         >
@@ -460,6 +472,14 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
                         </>
                     ) : (
                         <>
+                            {isPreviewable(contextMenu.item) && (
+                                <button
+                                    onClick={() => { onPreview(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                    className="w-full text-left px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/30 text-cyan-200 transition-colors flex items-center gap-3 font-bold"
+                                >
+                                    <span>👁️</span> Preview
+                                </button>
+                            )}
                             <button
                                 onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
                                 className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"

@@ -681,6 +681,29 @@ app.delete('/api/trash/empty', async (req, res) => {
     }
 });
 
+// API: Get Inline Preview URL
+app.get('/api/preview/:filename(*)', async (req, res) => {
+    try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
+        const filename = req.params.filename;
+        const fullKey = `${uid}/${filename}`;
+
+        const command = new GetObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: fullKey
+        });
+
+        // Generate URL for inline viewing (10 mins)
+        const url = await getSignedUrl(s3, command, { expiresIn: 600 });
+        res.json({ url });
+    } catch (error) {
+        console.error("Preview URL Error:", error);
+        res.status(500).json({ error: 'Failed to generate preview' });
+    }
+});
+
 // API: Share File (Pre-signed URL)
 app.post('/api/share', async (req, res) => {
     try {

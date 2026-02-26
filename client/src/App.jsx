@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import FileList from './components/FileList';
 import PaywallModal from './components/PaywallModal';
+import MediaPreview from './components/MediaPreview';
 import { auth, db, signInWithGoogle } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
@@ -10,6 +11,7 @@ import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 function App() {
   const [currentMenu, setCurrentMenu] = useState('My Data');
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [previewItem, setPreviewItem] = useState(null);
   const [kpcBalance, setKpcBalance] = useState(0);
   const [monthlyQuota, setMonthlyQuota] = useState(1);
   const [user, setUser] = useState(null);
@@ -183,11 +185,25 @@ function App() {
             <h1 className="text-2xl text-gray-100 font-normal tracking-wide mb-8 pl-2">
               {currentMenu === 'My Data' ? (user ? `Welcome, ${user.displayName.split(' ')[0]}` : 'Welcome to Grid Access') : currentMenu}
             </h1>
-            <FileList currentMenu={currentMenu} user={user} kpcStatus={kpcStatus} />
+            <FileList
+              currentMenu={currentMenu}
+              user={user}
+              kpcStatus={kpcStatus}
+              onPreview={(item) => setPreviewItem(item)}
+            />
           </div>
 
         </main>
       </div>
+
+      {/* Media Preview Overlay */}
+      {previewItem && (
+        <MediaPreview
+          item={previewItem}
+          uid={user?.uid}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
 
       {/* KPC Store Modal */}
       {isPaywallOpen && (
