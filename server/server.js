@@ -62,7 +62,7 @@ app.get('/api/health', (req, res) => {
 });
 
 const { s3 } = require('./config/r2');
-const { ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
+const { ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, CopyObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
 const JSZip = require('jszip');
@@ -523,61 +523,174 @@ app.post('/api/upload/presign', async (req, res) => {
     }
 });
 
-// API: Delete File or Folder from R2
+// API: Trash File or Folder (Move to .trash/)
 app.delete('/api/delete/:filename(*)', async (req, res) => {
+    try {
+        const uid = req.query.uid;
+        const permanent = req.query.permanent === 'true';
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+
+        if (!s3) return res.status(500).json({ error: 'R2 Client not initialized' });
+
+        const filename = req.params.filename;
+        const fullKey = `${uid}/${filename}`;
+        const isFolder = filename.endsWith('/');
+
+        // Helper: Move (Copy + Delete) or Delete
+        const processItem = async (key) => {
+            if (permanent) {
+                await s3.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+            } else {
+                // Skip if already in trash
+                if (key.includes('/.trash/')) return;
+
+                const trashKey = key.replace(`${uid}/`, `${uid}/.trash/`);
+                await s3.send(new CopyObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    CopySource: `${BUCKET_NAME}/${key}`,
+                    Key: trashKey
+                }));
+                await s3.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+            }
+        };
+
+        if (isFolder) {
+            let isTruncated = true;
+            let continuationToken = undefined;
+            while (isTruncated) {
+                const listRes = await s3.send(new ListObjectsV2Command({
+                    Bucket: BUCKET_NAME,
+                    Prefix: fullKey,
+                    ContinuationToken: continuationToken
+                }));
+                if (listRes.Contents) {
+                    for (const item of listRes.Contents) {
+                        await processItem(item.Key);
+                    }
+                }
+                isTruncated = listRes.IsTruncated;
+                continuationToken = listRes.NextContinuationToken;
+            }
+        } else {
+            await processItem(fullKey);
+        }
+
+        res.json({ message: permanent ? 'Deleted permanently' : 'Moved to trash' });
+    } catch (error) {
+        console.error("Delete Error:", error);
+        res.status(500).json({ error: 'Failed to process deletion' });
+    }
+});
+
+// API: List Trash
+app.get('/api/trash', async (req, res) => {
+    try {
+        const uid = req.query.uid;
+        if (!uid) return res.status(400).json({ error: 'UID is required' });
+        const prefix = `${uid}/.trash/`;
+
+        const command = new ListObjectsV2Command({ Bucket: BUCKET_NAME, Prefix: prefix });
+        const response = await s3.send(command);
+        const items = response.Contents || [];
+
+        const trashFiles = items.map((item, index) => {
+            const relativeName = item.Key.substring(prefix.length);
+            return {
+                id: item.ETag || index + 1,
+                name: relativeName,
+                size: (item.Size / 1024).toFixed(1) + ' KB',
+                sizeBytes: item.Size,
+                type: getFileType(relativeName),
+                modified: item.LastModified ? item.LastModified.toLocaleDateString() : 'N/A',
+                isTrash: true
+            };
+        });
+
+        res.json(trashFiles);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to list trash' });
+    }
+});
+
+// API: Restore from Trash
+app.post('/api/trash/restore', async (req, res) => {
+    try {
+        const { uid, filename } = req.body;
+        if (!uid || !filename) return res.status(400).json({ error: 'UID and filename required' });
+
+        const trashKey = `${uid}/.trash/${filename}`;
+        const targetKey = `${uid}/${filename}`;
+        const isFolder = filename.endsWith('/');
+
+        const restoreItem = async (tKey) => {
+            const originalKey = tKey.replace(`${uid}/.trash/`, `${uid}/`);
+            await s3.send(new CopyObjectCommand({
+                Bucket: BUCKET_NAME,
+                CopySource: `${BUCKET_NAME}/${tKey}`,
+                Key: originalKey
+            }));
+            await s3.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: tKey }));
+        };
+
+        if (isFolder) {
+            let isTruncated = true;
+            let token = undefined;
+            while (isTruncated) {
+                const list = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET_NAME, Prefix: trashKey, ContinuationToken: token }));
+                if (list.Contents) {
+                    for (const item of list.Contents) await restoreItem(item.Key);
+                }
+                isTruncated = list.IsTruncated;
+                token = list.NextContinuationToken;
+            }
+        } else {
+            await restoreItem(trashKey);
+        }
+
+        res.json({ message: 'Restored successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Restore failed' });
+    }
+});
+
+// API: Empty Trash
+app.delete('/api/trash/empty', async (req, res) => {
     try {
         const uid = req.query.uid;
         if (!uid) return res.status(400).json({ error: 'UID is required' });
 
-        if (!s3) {
-            return res.status(500).json({ error: 'R2 Client not initialized' });
-        }
+        const prefix = `${uid}/.trash/`;
+        let isTruncated = true;
+        let token = undefined;
 
-        const relativeTarget = req.params.filename;
-        const fullTarget = `${uid}/${relativeTarget}`;
-        const isFolder = relativeTarget.endsWith('/');
-
-        if (isFolder) {
-            // Recursive Folder Deletion
-            let isTruncated = true;
-            let continuationToken = undefined;
-
-            while (isTruncated) {
-                const listCommand = new ListObjectsV2Command({
+        while (isTruncated) {
+            const list = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET_NAME, Prefix: prefix, ContinuationToken: token }));
+            if (list.Contents && list.Contents.length > 0) {
+                await s3.send(new DeleteObjectsCommand({
                     Bucket: BUCKET_NAME,
-                    Prefix: fullTarget,
-                    ContinuationToken: continuationToken
-                });
-
-                const response = await s3.send(listCommand);
-
-                if (response.Contents && response.Contents.length > 0) {
-                    const deleteCommand = new DeleteObjectsCommand({
-                        Bucket: BUCKET_NAME,
-                        Delete: {
-                            Objects: response.Contents.map(item => ({ Key: item.Key })),
-                            Quiet: true
-                        }
-                    });
-                    await s3.send(deleteCommand);
-                }
-
-                isTruncated = response.IsTruncated;
-                continuationToken = response.NextContinuationToken;
+                    Delete: { Objects: list.Contents.map(o => ({ Key: o.Key })), Quiet: true }
+                }));
             }
-            res.json({ message: 'Folder and contents deleted successfully' });
-        } else {
-            // Single File Deletion
-            const command = new DeleteObjectCommand({
-                Bucket: BUCKET_NAME,
-                Key: fullTarget,
-            });
-            await s3.send(command);
-            res.json({ message: 'File deleted successfully' });
+            isTruncated = list.IsTruncated;
+            token = list.NextContinuationToken;
         }
+
+        res.json({ message: 'Trash emptied permanently' });
     } catch (error) {
-        console.error("Delete Error:", error);
-        res.status(500).json({ error: 'Failed to delete item(s)' });
+        res.status(500).json({ error: 'Failed to empty trash' });
+    }
+});
+
+// API: Share File (Pre-signed URL)
+app.post('/api/share', async (req, res) => {
+    try {
+        const { uid, filename } = req.body;
+        const fullKey = `${uid}/${filename}`;
+        const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: fullKey });
+        const url = await getSignedUrl(s3, command, { expiresIn: 60 * 60 * 24 * 7 }); // 7 Days
+        res.json({ url });
+    } catch (error) {
+        res.status(500).json({ error: 'Share link generation failed' });
     }
 });
 

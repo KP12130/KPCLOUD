@@ -114,6 +114,7 @@ const Sidebar = ({ currentMenu, setCurrentMenu, onOpenStore, kpcBalance, monthly
 
     const menuItems = [
         { name: 'My Data', icon: '☁️' },
+        { name: 'Shared with me', icon: '👥' },
         { name: 'Recent Activity', icon: '🕒' },
         { name: 'Starred', icon: '⭐' },
         { name: 'Trash Bin', icon: '🗑️' }

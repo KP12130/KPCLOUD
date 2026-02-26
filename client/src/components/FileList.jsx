@@ -31,20 +31,19 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
         }
         setLoading(true);
         try {
-            // Fetch from the Express backend
-            const response = await fetch(`/api/files?uid=${user.uid}`);
+            const isTrashView = currentMenu === 'Trash Bin';
+            const endpoint = isTrashView ? `/api/trash?uid=${user.uid}` : `/api/files?uid=${user.uid}`;
+            const response = await fetch(endpoint);
             const data = await response.json();
 
-            // Safeguard: Ensure data is an array before setting state
             if (Array.isArray(data)) {
                 setFiles(data);
             } else {
-                console.warn("Backend returned non-array data:", data);
                 setFiles([]);
             }
         } catch (error) {
-            console.error("Error fetching files from server:", error);
-            setFiles([]); // Handle error gracefully
+            console.error("Error fetching files:", error);
+            setFiles([]);
         } finally {
             setLoading(false);
         }
@@ -63,7 +62,7 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
             window.removeEventListener('fileUploaded', handleUploadEvent);
             window.removeEventListener('click', handleClickOutside);
         };
-    }, [user]);
+    }, [user, currentMenu]);
 
     const handleContextMenu = (e, item) => {
         e.preventDefault();
@@ -98,17 +97,51 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
         }
     };
 
-    const handleDelete = async (item) => {
+    const handleDelete = async (item, permanent = false) => {
         const itemType = item.isFolder ? "folder and all its contents" : "file";
-        if (!window.confirm(`Are you sure you want to permanently delete this ${itemType}: ${item.displayName || item.name}?`)) return;
+        const msg = permanent
+            ? `ARE YOU SURE? This ${itemType} will be PERMANENTLY DELETED and cannot be recovered.`
+            : `Move this ${itemType} to Trash?`;
+
+        if (!window.confirm(msg)) return;
 
         try {
-            const response = await fetch(`/api/delete/${encodeURIComponent(item.fullPath)}?uid=${user.uid}`, { method: 'DELETE' });
+            const response = await fetch(`/api/delete/${encodeURIComponent(item.fullPath)}?uid=${user.uid}&permanent=${permanent}`, { method: 'DELETE' });
             if (response.ok) {
                 fetchFiles();
             }
         } catch (error) {
             console.error("Delete error:", error);
+        }
+    };
+
+    const handleRestore = async (item) => {
+        try {
+            const response = await fetch('/api/trash/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, filename: item.name }) // in trash, name is relative path
+            });
+            if (response.ok) fetchFiles();
+        } catch (error) {
+            console.error("Restore error:", error);
+        }
+    };
+
+    const handleShare = async (item) => {
+        try {
+            const response = await fetch('/api/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, filename: item.fullPath })
+            });
+            const { url } = await response.json();
+            if (url) {
+                await navigator.clipboard.writeText(url);
+                alert("Share link copied to clipboard! (Valid for 7 days)");
+            }
+        } catch (error) {
+            console.error("Share error:", error);
         }
     };
 
@@ -128,7 +161,14 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
 
     const displayItems = useMemo(() => {
         if (currentMenu === 'Trash Bin') {
-            return [];
+            return files.map((file, idx) => ({
+                ...file,
+                id: `trash-${idx}`,
+                displayName: file.name.endsWith('/') ? file.name.slice(0, -1) : file.name,
+                isFolder: file.name.endsWith('/'),
+                fullPath: file.name, // in trash view, fullPath is the path within .trash/
+                isTrash: true
+            }));
         }
 
         if (currentMenu === 'Starred') {
@@ -221,21 +261,38 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
                     })}
                 </div>
 
-                <div className="flex items-center gap-1 bg-cyan-950/20 p-1 rounded-lg border border-cyan-900/30">
-                    <button
-                        onClick={() => setView('list')}
-                        className={`p-1.5 rounded-md transition-all z-40 relative cursor-pointer ${view === 'list' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        title="List view"
-                    >
-                        <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                    </button>
-                    <button
-                        onClick={() => setView('grid')}
-                        className={`p-1.5 rounded-md transition-all z-40 relative cursor-pointer ${view === 'grid' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        title="Grid view"
-                    >
-                        <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                    </button>
+                <div className="flex items-center gap-2">
+                    {currentMenu === 'Trash Bin' && files.length > 0 && (
+                        <button
+                            onClick={async () => {
+                                if (window.confirm("Empty entire trash permanently? This cannot be undone.")) {
+                                    try {
+                                        await fetch(`/api/trash/empty?uid=${user.uid}`, { method: 'DELETE' });
+                                        fetchFiles();
+                                    } catch (err) { console.error(err); }
+                                }
+                            }}
+                            className="text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-3 py-1 rounded-full hover:bg-rose-500 hover:text-white transition-all font-bold tracking-widest uppercase mr-2"
+                        >
+                            Empty Trash
+                        </button>
+                    )}
+                    <div className="flex items-center gap-1 bg-cyan-950/20 p-1 rounded-lg border border-cyan-900/30">
+                        <button
+                            onClick={() => setView('list')}
+                            className={`p-1.5 rounded-md transition-all z-40 relative cursor-pointer ${view === 'list' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
+                            title="List view"
+                        >
+                            <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                        </button>
+                        <button
+                            onClick={() => setView('grid')}
+                            className={`p-1.5 rounded-md transition-all z-40 relative cursor-pointer ${view === 'grid' ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}
+                            title="Grid view"
+                        >
+                            <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -302,12 +359,25 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
 
                                 {/* Actions */}
                                 <div className="w-20 flex justify-end gap-1 pr-1">
-                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-cyan-500/20 text-cyan-400 transition-all" title="Download">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-500 transition-all" title="Delete">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
+                                    {currentMenu === 'Trash Bin' ? (
+                                        <>
+                                            <button onClick={(e) => { e.stopPropagation(); handleRestore(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-green-500/20 text-green-400 transition-all" title="Restore">
+                                                <span>🔄</span>
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(item, true); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-500 transition-all" title="Delete Forever">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-cyan-500/20 text-cyan-400 transition-all" title="Download">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-500 transition-all" title="Delete">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -373,26 +443,51 @@ const FileList = ({ currentMenu = 'My Data', user, kpcStatus }) => {
                         <span className="text-[10px] text-gray-500 uppercase">{contextMenu.item.type}</span>
                     </div>
 
-                    <button
-                        onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                        className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
-                    >
-                        <span>📥</span> Download {contextMenu.item.isFolder && "as ZIP"}
-                    </button>
-                    {!contextMenu.item.isFolder && (
-                        <button
-                            onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                            className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
-                        >
-                            <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
-                        </button>
+                    {currentMenu === 'Trash Bin' ? (
+                        <>
+                            <button
+                                onClick={() => { handleRestore(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-green-500/20 hover:text-green-300 transition-colors flex items-center gap-3"
+                            >
+                                <span>🔄</span> Restore
+                            </button>
+                            <button
+                                onClick={() => { handleDelete(contextMenu.item, true); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
+                            >
+                                <span>🗑️</span> Delete Permanently
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => { handleDownload(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-cyan-500/20 hover:text-cyan-300 transition-colors flex items-center gap-3"
+                            >
+                                <span>📥</span> Download {contextMenu.item.isFolder && "as ZIP"}
+                            </button>
+                            <button
+                                onClick={() => { handleShare(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-blue-500/20 hover:text-blue-300 transition-colors flex items-center gap-3"
+                            >
+                                <span>🔗</span> Share Link
+                            </button>
+                            {!contextMenu.item.isFolder && (
+                                <button
+                                    onClick={() => { toggleStar(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                    className="w-full text-left px-4 py-2 hover:bg-yellow-500/20 hover:text-yellow-400 transition-colors flex items-center gap-3"
+                                >
+                                    <span>⭐</span> {starredFiles[contextMenu.item.fullPath] ? 'Unstar' : 'Star'}
+                                </button>
+                            )}
+                            <button
+                                onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
+                                className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
+                            >
+                                <span>🗑️</span> Move to Trash
+                            </button>
+                        </>
                     )}
-                    <button
-                        onClick={() => { handleDelete(contextMenu.item); setContextMenu({ ...contextMenu, visible: false }); }}
-                        className="w-full text-left px-4 py-2 hover:bg-red-500/20 hover:text-red-400 transition-colors flex items-center gap-3"
-                    >
-                        <span>🗑️</span> Delete
-                    </button>
                 </div>
             )}
         </div>
