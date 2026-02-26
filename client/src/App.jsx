@@ -5,6 +5,7 @@ import FileList from './components/FileList';
 import PaywallModal from './components/PaywallModal';
 import MediaPreview from './components/MediaPreview';
 import LandingPage from './components/LandingPage';
+import Settings from './components/Settings';
 import { auth, db, signInWithGoogle } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
@@ -188,14 +189,24 @@ function App() {
 
           <div className="content-scroll p-6 lg:p-8">
             <h1 className="text-2xl text-gray-100 font-normal tracking-wide mb-8 pl-2">
-              {currentMenu === 'My Data' ? (user ? `Welcome, ${user.displayName.split(' ')[0]}` : 'Welcome to Grid Access') : currentMenu}
+              {currentMenu === 'Settings' ? 'System Settings' : (currentMenu === 'My Data' ? (user ? `Welcome, ${user.displayName.split(' ')[0]}` : 'Welcome to Grid Access') : currentMenu)}
             </h1>
-            <FileList
-              currentMenu={currentMenu}
-              user={user}
-              kpcStatus={kpcStatus}
-              onPreview={(item) => setPreviewItem(item)}
-            />
+
+            {currentMenu === 'Settings' ? (
+              <Settings
+                user={user}
+                kpcStatus={kpcStatus}
+                balance={kpcBalance}
+                onUpgrade={() => setIsPaywallOpen(true)}
+              />
+            ) : (
+              <FileList
+                currentMenu={currentMenu}
+                user={user}
+                kpcStatus={kpcStatus}
+                onPreview={(item) => setPreviewItem(item)}
+              />
+            )}
           </div>
 
         </main>
