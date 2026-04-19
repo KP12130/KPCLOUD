@@ -1,14 +1,16 @@
 import React from 'react';
 
-const Header = ({ kpcBalance, onOpenStore, user, onSignIn, onSignOut, onSearch }) => {
+const Header = ({ kpcBalance, onOpenStore, user, onSignIn, onSignOut, onSearch, currentTheme, isVaultActive }) => {
     return (
-        <header className="h-16 w-full flex items-center justify-between px-4 z-20 shrink-0">
+        <header className={`h-16 w-full flex items-center justify-between px-4 z-20 shrink-0 transition-colors duration-1000 ${isVaultActive ? 'bg-rose-950/20' : ''}`}>
             {/* Logo Area */}
             <div className="w-60 flex items-center gap-3 px-2">
-                <div className="w-8 h-8 rounded-lg bg-cyan-900/40 border border-cyan-500/30 flex items-center justify-center shadow-[0_0_10px_rgba(0,243,255,0.2)]">
-                    <div className="w-4 h-4 rounded-sm bg-cyan-400 animate-pulse"></div>
+                <div className={`w-8 h-8 rounded-lg ${isVaultActive ? 'bg-rose-900/40 border-rose-500' : 'bg-cyan-900/40 border-[var(--primary-accent)]'} border flex items-center justify-center shadow-[0_0_10px_var(--primary-glow)]`}>
+                    <div className={`w-4 h-4 rounded-sm ${isVaultActive ? 'bg-yellow-400' : 'bg-[var(--primary-accent)]'} animate-pulse`}></div>
                 </div>
-                <span className="text-xl font-bold tracking-tight text-white">KP<span className="text-cyan-500">Cloud</span></span>
+                <span className="text-xl font-bold tracking-tight text-white">
+                    {isVaultActive ? <span className="text-rose-500 tracking-tighter">VAULT_LOCK</span> : <>KP<span className="text-[var(--primary-accent)]">Cloud</span></>}
+                </span>
             </div>
 
             {/* Central Search Bar */}

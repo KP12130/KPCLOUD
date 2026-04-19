@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 
-const Settings = ({ user, kpcStatus, balance, onUpgrade }) => {
+const Settings = ({ user, kpcStatus, balance, onUpgrade, currentTheme, onThemeChange }) => {
     const [activeTab, setActiveTab] = useState('Account');
+
+    const themes = [
+        { id: 'cyan', name: 'Grid Cyan', color: '#00f3ff' },
+        { id: 'amethyst', name: 'Royal Amethyst', color: '#a855f7' },
+        { id: 'emerald', name: 'Operative Emerald', color: '#10b981' },
+        { id: 'volcanic', name: 'Volcanic Core', color: '#f97316' }
+    ];
 
     const tabs = [
         { name: 'Account', icon: '👤' },
+        { name: 'Appearance', icon: '🎨' },
         { name: 'Security', icon: '🛡️' },
         { name: 'Storage', icon: '📦' },
         { name: 'About', icon: 'ℹ️' }
@@ -26,8 +34,8 @@ const Settings = ({ user, kpcStatus, balance, onUpgrade }) => {
                             key={tab.name}
                             onClick={() => setActiveTab(tab.name)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === tab.name
-                                    ? 'bg-cyan-500/10 border border-cyan-500/30 text-white shadow-[0_0_15px_rgba(0,243,255,0.1)]'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                                ? 'bg-cyan-500/10 border border-cyan-500/30 text-white shadow-[0_0_15px_rgba(0,243,255,0.1)]'
+                                : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
                                 }`}
                         >
                             <span className="text-lg">{tab.icon}</span>
@@ -65,6 +73,35 @@ const Settings = ({ user, kpcStatus, balance, onUpgrade }) => {
                                         className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white flex-1 focus:border-cyan-500/50 outline-none transition-all"
                                     />
                                     <button className="bg-white/10 px-6 py-2 rounded-xl text-white text-xs font-bold uppercase hover:bg-white/20 transition-all">Update</button>
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
+                    {activeTab === 'Appearance' && (
+                        <div className="space-y-8 animate-in fade-in duration-300">
+                            <section>
+                                <h3 className="text-white font-bold uppercase tracking-widest text-[10px] opacity-40 mb-6">Visual Identity</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {themes.map(t => (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => onThemeChange(t.id)}
+                                            className={`flex items-center justify-between p-6 rounded-2xl border transition-all ${currentTheme === t.id
+                                                ? 'bg-white/10 border-[var(--primary-accent)] shadow-[0_0_20px_var(--primary-glow)]'
+                                                : 'bg-white/5 border-white/5 hover:border-[var(--primary-accent)] hover:shadow-[0_0_10px_var(--primary-glow)]'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div
+                                                    className="w-4 h-4 rounded-full shadow-[0_0_10px_currentColor]"
+                                                    style={{ backgroundColor: t.color, color: t.color }}
+                                                ></div>
+                                                <span className="text-white font-bold text-sm tracking-tight">{t.name}</span>
+                                            </div>
+                                            {currentTheme === t.id && <span className="text-xs text-white/40 font-mono tracking-widest uppercase">ACTIVE</span>}
+                                        </button>
+                                    ))}
                                 </div>
                             </section>
                         </div>

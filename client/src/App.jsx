@@ -7,6 +7,7 @@ import MediaPreview from './components/MediaPreview';
 import LandingPage from './components/LandingPage';
 import Settings from './components/Settings';
 import ActivityLogs from './components/ActivityLogs';
+import Terminal from './components/Terminal';
 import { auth, db, signInWithGoogle } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
@@ -27,6 +28,42 @@ function App() {
   const [kpcStatus, setKpcStatus] = useState('active');
   const [autoDeleteDate, setAutoDeleteDate] = useState(null);
   const [timeLeft, setTimeLeft] = useState("");
+
+  // Phase 6: Power User & Security States
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isVaultActive, setIsVaultActive] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('kpcloud-theme') || 'cyan');
+  const [currentPath, setCurrentPath] = useState('');
+
+  // Shortcut for Terminal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey && e.key.toLowerCase() === 't') {
+        setIsTerminalOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Theme Injection
+  useEffect(() => {
+    const root = document.documentElement;
+    localStorage.setItem('kpcloud-theme', currentTheme);
+
+    // Theme Colors
+    const themes = {
+      cyan: { accent: '#00f3ff', glow: 'rgba(0, 243, 255, 0.3)' },
+      amethyst: { accent: '#a855f7', glow: 'rgba(168, 85, 247, 0.3)' },
+      emerald: { accent: '#10b981', glow: 'rgba(16, 185, 129, 0.3)' },
+      volcanic: { accent: '#f97316', glow: 'rgba(249, 115, 22, 0.3)' }
+    };
+
+    const t = themes[currentTheme] || themes.cyan;
+    root.style.setProperty('--primary-accent', t.accent);
+    root.style.setProperty('--primary-glow', t.glow);
+    root.style.setProperty('--glass-border', `rgba(${parseInt(t.accent.slice(1, 3), 16)}, ${parseInt(t.accent.slice(3, 5), 16)}, ${parseInt(t.accent.slice(5, 7), 16)}, 0.2)`);
+  }, [currentTheme]);
 
   useEffect(() => {
     let unsubscribeDoc = null;
@@ -145,7 +182,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#030303] text-white font-mono overflow-hidden relative">
+    <div className={`h-screen w-screen flex flex-col bg-[#030303] text-white font-mono overflow-hidden relative ${isVaultActive ? 'vault-active' : ''}`}>
       {/* Emergency Protocol Banner */}
       {kpcStatus === 'suspended' && (
         <div className="bg-rose-600 text-white py-2 px-4 text-center font-bold animate-pulse text-[10px] md:text-xs tracking-widest flex flex-wrap items-center justify-center gap-x-6 gap-y-2 z-[100] border-b border-white/20">
@@ -168,6 +205,7 @@ function App() {
       {/* Background Visuals */}
       <div className="bg-grid"></div>
       <div className="bg-vignette"></div>
+      {isVaultActive && <div className="vault-overlay"></div>}
 
       {/* Top Header */}
       <Header
@@ -177,6 +215,8 @@ function App() {
         kpcBalance={kpcBalance}
         onOpenStore={() => setIsPaywallOpen(true)}
         onSearch={handleSearch}
+        currentTheme={currentTheme}
+        isVaultActive={isVaultActive}
       />
 
       {/* Main Layout Area */}
@@ -205,6 +245,8 @@ function App() {
                 kpcStatus={kpcStatus}
                 balance={kpcBalance}
                 onUpgrade={() => setIsPaywallOpen(true)}
+                currentTheme={currentTheme}
+                onThemeChange={setCurrentTheme}
               />
             ) : currentMenu === 'Recent Activity' ? (
               <ActivityLogs uid={user?.uid} />
@@ -215,6 +257,7 @@ function App() {
                 kpcStatus={kpcStatus}
                 onPreview={(item) => setPreviewItem(item)}
                 searchQuery={searchQuery}
+                isVaultActive={isVaultActive}
               />
             )}
           </div>
@@ -241,6 +284,15 @@ function App() {
           onApplyConfig={handleApplyConfig}
         />
       )}
+      <Terminal
+        isOpen={isTerminalOpen}
+        onClose={() => setIsTerminalOpen(false)}
+        user={user}
+        currentPath={currentPath}
+        onNavigate={setCurrentPath}
+        onRefresh={() => window.dispatchEvent(new CustomEvent('fileUploaded'))}
+        onVaultToggle={() => setIsVaultActive(prev => !prev)}
+      />
     </div>
   );
 }

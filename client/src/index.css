@@ -5,15 +5,39 @@
 @tailwind utilities;
 
 :root {
+  /* Default Cyan Theme (Standard) */
+  --primary-glow: rgba(0, 243, 255, 0.3);
+  --primary-accent: #00f3ff;
   --bg-color: #030303;
-  --accent-blue: #00f3ff;
-  --accent-green: #39ff14;
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(0, 243, 255, 0.2);
-  --neon-glow: 0 0 10px rgba(0, 243, 255, 0.3), 0 0 20px rgba(0, 243, 255, 0.1);
   --font-mono: 'JetBrains Mono', monospace;
+  --vault-glow: rgba(255, 0, 0, 0.2);
+}
+
+/* Vault Mode Override */
+.vault-active {
+  --primary-accent: #facc15;
+  /* Gold accents */
+  --glass-border: rgba(250, 204, 21, 0.3);
+  --primary-glow: rgba(255, 0, 0, 0.4);
+}
+
+.vault-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0%, rgba(20, 0, 0, 0.8) 100%);
+  pointer-events: none;
+  z-index: 100;
+  transition: all 1s ease;
+}
+
+.vault-active .bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.05) 1px, transparent 1px);
 }
 
 * {
